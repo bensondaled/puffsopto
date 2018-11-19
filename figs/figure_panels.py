@@ -25,7 +25,10 @@ from statsmodels.stats.proportion import proportions_ztest
 from statsmodels import robust
 mad = robust.mad
 from matplotlib.patches import Ellipse
-from matplotlib.transforms import blended_transform_factory as blend
+from matplotlib.transforms import Affine2D, blended_transform_factory as blend
+from matplotlib.text import TextPath
+from matplotlib.font_manager import FontProperties
+from matplotlib.patches import PathPatch, Path
 
 jit = lambda sig=.1: np.random.normal(0,sig)
 
@@ -35,9 +38,9 @@ FS = 7
 
 mcols = {
             0: 'k',
-            2: 'cornflowerblue',
-            3: 'mediumpurple',
-            4: 'lightseagreen',
+            2: [.255, .541, .851], #'cornflowerblue',
+            3: [.424, .251, .690], #'mediumpurple',
+            4: [.243, .612, .549], #'lightseagreen',
             5: 'darkblue',#[.43, .0, .0],
             6: 'darkcyan',#[.62, .4, .22],
             7: 'steelblue',#[1., .71, .41],
@@ -45,7 +48,7 @@ mcols = {
         }
 
 mlabs = {
-        0 : 'None',
+        0 : 'Light off',
         2 : 'Bilateral',
         3 : 'Left',
         4 : 'Right',
@@ -73,18 +76,65 @@ def psy_bsl(axs, panel_id):
         for grp in grps:
             dats[grp] = h5_to_df(h, grp)
     
+    ntrials = 0 
     for s,d in dats.items():
         if 'meta' in s:
             ax.plot(d.index, d['mean'], lw=.75, color='k', zorder=10)
         else:
             ax.plot(d.index, d['mean'], lw=.25, color='grey')
-    
+            ntrials += d['len'].sum()
+
     ax.set_xticks([-12,0,12])
     ax.set_yticks([0,.5,1])
     ax.set_yticklabels(['0','.5','1'])
     ax.set_xlabel('#R-#L puffs', fontsize=FS, labelpad=0)
     ax.set_ylabel('Fraction R choices', fontsize=FS, labelpad=0)
     ax.tick_params(labelsize=FS, pad=.01)
+
+    ax.text(.25, .8, f'{len(dats)-1} mice', fontsize=FS-1, ha='center', va='center', transform=ax.transAxes, color='grey')
+    ax.text(.25, .7, f'{ntrials:,.0f} trials', fontsize=FS-1, ha='center', va='center', transform=ax.transAxes, color='k')
+
+    return axs
+
+def impairment_simulation(axs, panel_id, agent=0, man=0):
+    ax = axs[panel_id]
+
+    titles = {
+            0 : 'No impairment',
+            1 : 'Sensation/attention\nimpairment',
+            2 : 'Retention\nimpairment',
+            3 : 'Action\nimpairment',
+            }
+
+    with h5py.File(data_file) as h:
+        regr = h5_to_df(h, f'impairment_simulation_agent{agent}_man{man}')
+
+    ax.errorbar(regr.index, regr['weight'], yerr=regr['yerr'], lw=.75, color=mcols[man])
+    w567 = 3.8/3
+    if man in [5,6,7]:
+        ax.axvspan((man-5)*w567, (man-5+1)*w567, color=mcols[man], alpha=.3, lw=0)
+
+    if man == 0:
+        ax.text(-.95, .5, titles[agent], ha='center', va='center', transform=ax.transAxes, fontsize=FS)
+        ax.set_ylabel('Weight on evidence\n(normalized)', fontsize=FS-1, labelpad=-2)
+
+    if man == 5 and agent == 3:
+        ax.text(1.2, -.3, 'Time in trial (s)', fontsize=FS, ha='center', va='center', transform=ax.transAxes)
+    
+    ax.set_ylim([0, .25])
+    ax.set_yticks([0,.25])
+    ax.set_yticklabels(['0','1'])
+    ax.set_xticks([1,2,3])
+    ax.set_xlim([0,3.8])
+
+
+    if agent != 3:
+        ax.set_xticklabels([])
+
+    if man != 0:
+        ax.set_yticklabels([])
+
+    ax.tick_params(labelsize=FS)
 
     return axs
 
@@ -108,13 +158,15 @@ def regr_bsl(axs, panel_id):
             ptch.set_edgecolor('dimgrey')
             ptch.set_linestyle((0,(1,1)))
         else:
-            ax.plot(d.index, d['weight'], lw=.1, color='k')
+            ax.plot(d.index, d['weight'], lw=.25, color='grey')
+
+    ax.text(1.07, .09, 'Shuffle', fontsize=FS, color='grey', transform=ax.transAxes, ha='center', va='center')
     
     ax.set_ylim([-.05, None])
     ax.set_xlim([0.3, 3.5])
     ax.set_yticks([0, .5])
     ax.set_xlabel('Cue period (s)', fontsize=FS, labelpad=0)
-    ax.set_ylabel('Weight', fontsize=FS, labelpad=0)
+    ax.set_ylabel('Weight on evidence', fontsize=FS, labelpad=2)
     ax.tick_params(labelsize=FS, pad=.01)
 
     return axs
@@ -193,9 +245,9 @@ def psys(axs, panel_id, manips=[0,2], ylab=True, grp='exp', easy=False):
                 frac = ncor/ntot
                 frac = 1-frac if side==0 else frac
                 conf = confidence(frac, ntot)
-                ofs = 1.5 + 1.5*mani
+                ofs = 1.5 + 2.*mani
                 ofs = -ofs if side==0 else ofs
-                ax.errorbar(easy_x[side]+ofs, frac, yerr=conf, lw=.9, marker='o', markersize=1.5, mfc=mcols[man], mec=mcols[man], ecolor=mcols[man], mew=0)
+                ax.errorbar(easy_x[side]+ofs, frac, yerr=conf, lw=1., marker='o', markersize=2., mfc=mcols[man], mec=mcols[man], ecolor=mcols[man], mew=0)
 
     ax.set_ylim([0,1])
     if easy:
@@ -219,8 +271,9 @@ def psys(axs, panel_id, manips=[0,2], ylab=True, grp='exp', easy=False):
     ax.set_xlabel('#R-#L puffs', fontsize=FS, labelpad=3)
 
     if grp == 'ctl':
-        ttl = ax.set_title(r'ChR2$^–$ controls', fontsize=FS-1)
-        ttl.set_position([.5, .93])
+        pass
+        #ttl = ax.set_title(r'ChR2$^–$ controls', fontsize=FS-1)
+        #ttl.set_position([.5, .93])
 
     # manip-specific labels
     shorts = dict(Bilateral='Bil', Left='L', Right='R')
@@ -229,11 +282,13 @@ def psys(axs, panel_id, manips=[0,2], ylab=True, grp='exp', easy=False):
         #lab = shorts.get(lab, lab)
         ax.text(.68, .32, lab, color=mcols[2], fontsize=FS-1, ha='center', va='center', transform=ax.transAxes)
         ax.text(.44, .8, 'Light\noff', color=mcols[0], fontsize=FS-1, ha='center', va='center', transform=ax.transAxes)
-    elif manips == [0,3,4]:
+    elif manips == [0,3,4] or manips == [0,3] or manips == [0,4]:
         labr = 'Right'#shorts.get('Right')
         labl = 'Left'#shorts.get('Left')
-        ax.text(.65, .3, labl, color=mcols[3], fontsize=FS-1, ha='center', va='center', transform=ax.transAxes)
-        ax.text(.33, .67, labr, color=mcols[4], fontsize=FS-1, ha='center', va='center', transform=ax.transAxes)
+        if 3 in manips:
+            ax.text(.65, .3, labl, color=mcols[3], fontsize=FS-1, ha='center', va='center', transform=ax.transAxes)
+        if 4 in manips:
+            ax.text(.33, .67, labr, color=mcols[4], fontsize=FS-1, ha='center', va='center', transform=ax.transAxes)
     return axs
 
 def fracs_simple(axs, panel_id, manips=[0,5,6,7], hard=False, dp_title=False, xlabs=False):
@@ -280,7 +335,65 @@ def fracs_simple(axs, panel_id, manips=[0,5,6,7], hard=False, dp_title=False, xl
 
     return axs
 
-def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dispmode='pts', show_ctl=True):
+def curly_brace(x, y, width=1/8, height=1., curliness=1/np.e, pointing='left', **patch_kw):
+    '''Create patch of a curly brace
+
+    Parameters
+    ----------
+    x : origin in x
+    y : origin in y
+    width : horizontal span of patch
+    curliness : 1/e tends to look nice
+    pointing : direction it points (only supports left and right currently)
+    
+    Notes
+    -----
+    To add to Axes:
+    cb = curly_brace()
+    ax.add_artist(cb)
+    
+    Thanks to:
+    https://graphicdesign.stackexchange.com/questions/86334/inkscape-easy-way-to-create-curly-brace-bracket
+    http://www.inkscapeforum.com/viewtopic.php?t=11228
+    https://css-tricks.com/svg-path-syntax-illustrated-guide/
+    https://matplotlib.org/users/path_tutorial.html
+    '''
+
+    verts = np.array([
+           [width,0],
+           [0,0],
+           [width, curliness],
+           [0,.5],
+           [width, 1-curliness],
+           [0,1],
+           [width,1]
+           ])
+    
+    if pointing == 'left':
+        pass
+    elif pointing == 'right':
+        verts[:,0] = width - verts[:,0]
+
+    verts[:,1] *= height
+    
+    verts[:,0] += x
+    verts[:,1] += y
+
+    codes = [Path.MOVETO,
+             Path.CURVE4,
+             Path.CURVE4,
+             Path.CURVE4,
+             Path.CURVE4,
+             Path.CURVE4,
+             Path.CURVE4,
+             ]
+
+    path = Path(verts, codes)
+
+    pp = PathPatch(path, facecolor='none', **patch_kw) 
+    return pp
+
+def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dispmode='pts', show_ctl=True, show_signif=True):
     """Cue-period bilateral stimulation fraction correct
     """
     ax = axs[panel_id]
@@ -336,7 +449,7 @@ def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dis
             cols = [mcols[i] for i in manips]
             xs = [i+jit(.04) for i in range(len(manips))]
             #ax.plot(xs, ys, color='grey', lw=.25, zorder=0)
-            ax.scatter(xs, ys, c=cols, s=2, edgecolor='none')
+            ax.scatter(xs, ys, c=cols, s=4, edgecolor='none')
         
         # ctl
         if show_ctl:
@@ -357,15 +470,20 @@ def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dis
         xs = [idx-.1, idx+.1]
         ys = [mean]*2
         if dispmode in ['pts']:
-            ax.plot(xs, ys, lw=1, color=mcols[man], alpha=.5)
+            ax.plot(xs, ys, lw=2, color=mcols[man], alpha=.5)
     
             # signif lines
-            x0 = idx+.3
-            col = 'k'#mcols[man]
-            ax.plot([x0]*2, [0,mean], color=col, lw=.25, clip_on=False)
-            ax.plot([x0-.05, x0], [0,0], color=col, lw=.25, clip_on=False)
-            ax.plot([x0-.05, x0], [mean,mean], color=col, lw=.25, clip_on=False)
-            ax.text(x0+.15, mean/2, r'$\ast$', color=col, clip_on=False, ha='center', va='center', fontsize=FS-3)
+            if show_signif:
+                x0 = idx+.2
+                col = 'k'#mcols[man]
+                # curly brace:
+                cb = curly_brace(x=x0, y=0, width=.2, height=mean, pointing='right', transform=ax.transData, lw=.5, edgecolor='dimgrey')
+                ax.add_patch(cb)
+                # or lines:
+                #ax.plot([x0]*2, [0,mean], color=col, lw=.25, clip_on=False)
+                #ax.plot([x0-.05, x0], [0,0], color=col, lw=.25, clip_on=False)
+                #ax.plot([x0-.05, x0], [mean,mean], color=col, lw=.25, clip_on=False)
+                ax.text(x0+.3, mean/2-.4, r'$\ast$', clip_on=False, ha='center', va='center', fontsize=FS-3, color='dimgrey')
 
         if dispmode in ['agg']:
             ax.plot(np.mean(xs), ys[0], lw=.5, color=mcols[man], marker='o', markersize=2)
@@ -420,10 +538,10 @@ def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dis
     # chance line
     if labelmode == 0:
         xlim = ax.get_xlim()
-        ax.plot(xlim, [0,0], lw=.5, ls=':', dashes=[1,1], color='k')
+        ax.plot(xlim, [0,0], lw=.5, ls=':', dashes=[1,1], color='dimgrey')
     
     # labels
-    shorts = dict(Bilateral='Bi-\nlateral', Left='Left', Right='Right')
+    shorts = dict(Bilateral='Bilateral', Left='Left', Right='Right')
     for mi,man in enumerate(manips):
         rotation = 0
         y = -.06
@@ -439,18 +557,19 @@ def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dis
 
     # STATS
     print(f'Fraction correct in manips {manips}')
+    test = ttest_rel
     for man in manips:
         d0 = dats[0]
         dx = dats[man]
         assert np.all(d0.subj == dx.subj)
-        res = ttest_rel(d0.frac.values, dx.frac.values)
+        res = test(d0.frac.values, dx.frac.values)
         print(f'\tControl vs Man{man}: p={res.pvalue:0.4f}')
         
         # Ctl
         d0 = dats_ctl[0]
         dx = dats_ctl[man]
         assert np.all(d0.subj == dx.subj)
-        res = ttest_rel(d0.frac.values, dx.frac.values)
+        res = test(d0.frac.values, dx.frac.values)
         print(f'\tChR-: Control vs Man{man}: p={res.pvalue:0.4f}')
 
     return axs
@@ -539,7 +658,7 @@ def reg_difs(axs, panel_id, manips=[5,6,7,8]):
     
     return axs
 
-def regs(axs, panel_id, manips=[0,2], ylab=True, hard=False, xlab=True, ylim=(-.02,.4), shade=True):
+def regs(axs, panel_id, manips=[0,2], ylab=True, hard=False, xlab=True, ylim=(-.02,.4), shade=True, annotate=False, main_title=False):
     """Cue-period bilateral stimulation regression
     """
     ax = axs[panel_id]
@@ -578,29 +697,36 @@ def regs(axs, panel_id, manips=[0,2], ylab=True, hard=False, xlab=True, ylim=(-.
         ax.errorbar(dat.index+ofs, mean, yerr=yerr, color=mcols[man], lw=.75, marker=None, elinewidth=.75)
         #ax.plot(dat.index+ofs, regs[man].T, color='grey', lw=.5)
         if man in [5,6,7] and shade:
-            ax.axvspan((man-5)*w567, (man-5+1)*w567, color=mcols[man], alpha=.1, lw=0)
+            ax.axvspan((man-5)*w567, (man-5+1)*w567, color=mcols[man], alpha=.4, lw=0)
         elif man == 8 and shade:
-            ax.axvspan(3.8, 4.3, color=mcols[8], alpha=.1, lw=0)
+            ax.axvspan(3.8, 4.3, color=mcols[8], alpha=.4, lw=0)
+
+    if annotate and manips==[0,8]:
+        ax.text(.5, .65, 'Light off', fontsize=FS-1, transform=ax.transAxes, ha='center', va='center')
+        ax.text(.4, .1, 'Delay-period light', fontsize=FS-1, transform=ax.transAxes, ha='center', va='center', color=mcols[8])
 
     ax.set_ylim(ylim)
-    ax.set_xlim([0,4.])
+    ax.set_xlim([-.2,4.])
     if True:#ylim[1] == .4:
         ax.set_yticks([0,.2,.4])
-        ax.set_yticklabels(['0','','.4'])
+        ax.set_yticklabels(['0','','0.4'])
     ax.tick_params(labelsize=FS, pad=2)
     
     if xlab:
         ax.set_xlabel('Cue period (s)', fontsize=FS, labelpad=3)
     if ylab:
-        ax.set_ylabel('Weight on evidence', fontsize=FS, labelpad=4)
+        ax.set_ylabel('Weight on evidence', fontsize=FS, labelpad=0)
+    if main_title:
+        ax.text(.5, 1.2, 'Sub-cue-period light delivery', fontsize=FS, transform=ax.transAxes, ha='center', va='center')
 
     # signif
     if manips in ([0,7],[0,6]):
         d0 = dats[0]['weight'].values[0]
         dx = dats[manips[1]]['weight'].values[0]
-        idx = np.array(dats[0].index)[0] - 0.25
-        ax.plot([idx]*2, [d0,dx], color='grey', lw=.75)
-        ax.text(idx-.1, (d0+dx)/2, '$\\ast$', color='grey', fontsize=FS-3, ha='center', va='center')
+        idx = np.array(dats[0].index)[0] - 0.5
+        cb = curly_brace(idx, dx, height=d0-dx, width=.3, transform=ax.transData, edgecolor='dimgrey', lw=.5, pointing='left')
+        ax.add_artist(cb)
+        ax.text(idx-.1, (d0+dx)/2-.003, '$\\ast$', color='grey', fontsize=FS-3, ha='center', va='center')
     elif manips in ([0,8],[0,2,3,4]):
         dx = dats[manips[-1]]['weight'].values
         ex = dats[manips[-1]]['yerr'].values
@@ -616,6 +742,8 @@ def regs(axs, panel_id, manips=[0,2], ylab=True, hard=False, xlab=True, ylim=(-.
 def light_triggered_regression(axs, panel_id):
     ax = axs[panel_id]
 
+    light_colour = [.424,.541,.620]
+
     with h5py.File(data_file) as h:
         ltr = h5_to_df(h, 'light_triggered_regression')
     
@@ -625,13 +753,13 @@ def light_triggered_regression(axs, panel_id):
     smean = ltr.shuffle_mean.values
     serr = ltr.shuffle_err.values
     ax.fill_between(ltr.index, smean-serr, smean+serr, alpha=.2, color='grey', lw=0)
-    ax.axvspan(0, dur/3, color='dodgerblue', alpha=.3, lw=0)
+    ax.axvspan(0, dur/3, color=light_colour, alpha=.35, lw=0)
 
     trans = blend(ax.transAxes, ax.transData)
-    #ax.text(1., smean[-1], 'Shuffle', fontsize=FS, ha='left', va='center', transform=trans, color='grey')
+    ax.text(1., smean[-1], 'Shuffle', fontsize=FS, ha='left', va='center', transform=trans, color='grey')
     
     trans = blend(ax.transData, ax.transAxes)
-    ax.text(dur/6, 1.03, 'Light delivery', fontsize=FS, ha='center', va='bottom', transform=trans, color='dodgerblue')
+    ax.text(dur/6, 1.03, 'Light delivery', fontsize=FS, ha='center', va='bottom', transform=trans, color=light_colour)
 
     ax.set_xlabel('Time from light onset (s)', fontsize=FS, labelpad=4)
     ax.set_ylabel('Weight on evidence', fontsize=FS, labelpad=6)
@@ -812,7 +940,7 @@ def task_structure(axs, panel_id):
     
     ax_x,ax_y,ax_w,ax_h = ax.get_position().bounds
     # lines
-    z = .5
+    z = .01
     end = 1.
     dur = 10 # seconds # in truth 12, but cutting ITI
     fps = (end-z)/dur # fraction per second
@@ -820,8 +948,7 @@ def task_structure(axs, panel_id):
     stick = .1
    
     # draw mouse
-    axim = draw_im(mouse, -.07, 0, .4, ax_h)
-    #axim.text(.9, .1, 'water', fontsize=FS, rotation=-30, transform=axim.transAxes)
+    axim = draw_im(mouse, .2, 1.5, ax_w/2, ax_h/2)
 
     tyo = .0033333333 # tick y offset due to line thickness differences
     # phase boundaries
@@ -958,7 +1085,8 @@ def task_structure(axs, panel_id):
 
     return axs
 
-def ephys(axs, panel_id):
+def ephys(axs, panel_id, cell_type='pc'):
+    # cell types: pc / dcn
     ax = axs[panel_id]
 
     fig = ax.figure
@@ -976,7 +1104,7 @@ def ephys(axs, panel_id):
     axs[panel_id] = [ax0,ax1,ax2]
 
     with h5py.File(data_file) as h:
-        grp = h['ephys_rawtrace']
+        grp = h[f'ephys_rawtrace_{cell_type}']
         time = np.array(grp['time'])
         tr = np.array(grp['trace'])
         ss = np.array(grp['ss'])
@@ -996,7 +1124,7 @@ def ephys(axs, panel_id):
     # means
     for pro,ax,xmax in zip([6,3],[ax1,ax2],[2.24,5]):
         with h5py.File(data_file) as h:
-            grp = h[f'ephys_pro{pro}']
+            grp = h[f'ephys_pro{pro}_celltype-{cell_type}']
             lstart = grp.attrs['light_start_time']
             lstop = grp.attrs['light_stop_time']
             time = np.array(grp['time'])
@@ -1331,8 +1459,8 @@ def ddm_params_julia_bootstrap(axs, panel_id, param_idx, manips=[8,234,0], ytick
             '',
             '',
             ]
-    mnames = {0:'Ctrl',234:'Full CP',67:'Mid-late CP',8:'Delay'}
-    xlim = {2:(-3.1,.25), 0:(-5,80), 1:(-5,420), 4:(-.01,.70), 3:(-2.5,2.5)}
+    mnames = {0:'Light off',234:'Full CP',67:'Mid-late CP',8:'Delay','0_sub6000flip25':'Simulated\nimpairment'}
+    xlim = {2:(-3.1,.3), 0:(-5,80), 1:(-5,420), 4:(-.01,.70), 3:(-2.5,2.5)}
     minmaxs = {0:(0,None), 1: (0,None), 2: None, 3:None, 4:(0,1)}
     
     params = {}
@@ -1350,14 +1478,14 @@ def ddm_params_julia_bootstrap(axs, panel_id, param_idx, manips=[8,234,0], ytick
          
         p0 = params[0][:,param_idx]
         ci0_lo, ci0_hi = np.percentile(p0, [2.5,97.5], axis=0)
-
-        print(f'\tManip{manip:<4d}\t:\t{ci_lo:0.3f} – {ci_hi:0.3f}')
+        
+        print(f'\tManip{manip}\t:\t{ci_lo:0.3f} – {ci_hi:0.3f}')
 
         #std = p.std(axis=0, ddof=1)     
         #err = bound_error(std, median, minmaxs[param_idx])
         iqr_lo,iqr_hi = np.percentile(p, [25,75], axis=0)
         
-        h = .1
+        h = .1 # thickness of violins
 
         #ax.fill_between([ci_lo,ci_hi], mi-h, mi+h, color='dodgerblue', alpha=.1, lw=0)
         
@@ -1392,24 +1520,30 @@ def ddm_params_julia_bootstrap(axs, panel_id, param_idx, manips=[8,234,0], ytick
         #ax.plot([iqr_lo, iqr_hi], [mi]*2, marker=None, lw=.5, color='k')
         
         if manip == 0:
-            ax.axvline(median, linestyle=':', dashes=[1,1], color='k', lw=.5, zorder=0)
+            ax.axvline(median, linestyle=':', dashes=[2,3], color='k', lw=.5, zorder=0)
 
     if param_idx == 2:
         pass
         #ax.axvline(0, linestyle=':', dashes=[1,1], color='k', lw=.1)
 
     ax.set_yticks([])
-    if yticklabels:
-        #ax.set_yticklabels([mnames[i] for i in manips])
-        ax.set_yticklabels([])
+    if yticklabels is not False:
+        if yticklabels == 'text':
+            for i,m in enumerate(manips):
+                mn = mnames[m]
+                if m==0 and '0_sub6000flip25' in manips:
+                    mn = 'Data\n(light off)'
+                ax.text(-.4, i, mn, fontsize=FS, ha='center', va='center', transform=blend(ax.transAxes, ax.transData))
+        else:
+            ax.set_yticklabels([])
 
-        for mi,m in enumerate(manips):
-            h = .3
-            wfull = .7
-            wdel = .3
-            xpad = .1
-            
-            mini_light_delivery_schematic(ax, x0=-wfull-wdel-xpad, y0=mi-h/2, w=wfull, h=h, m=m, transform=blend(ax.transAxes,ax.transData))
+            for mi,m in enumerate(manips):
+                h = .3
+                wfull = .7
+                wdel = .3
+                xpad = .1
+                
+                mini_light_delivery_schematic(ax, x0=-wfull-wdel-xpad, y0=mi-h/2, w=wfull, h=h, m=m, transform=blend(ax.transAxes,ax.transData), titles=True)
             
     else:
         ax.set_yticklabels([])
@@ -1586,7 +1720,7 @@ def ddm_params(axs, panel_id, param_idx, manips=[8,67,0], yticklabels=False):
 
     return axs
 
-def mini_light_delivery_schematic(ax, x0, y0, w, h, m=0, transform=None):
+def mini_light_delivery_schematic(ax, x0, y0, w, h, m=0, transform=None, titles=False):
     if m == 0:
         fc = 'none'
     elif m == 234:
@@ -1594,8 +1728,17 @@ def mini_light_delivery_schematic(ax, x0, y0, w, h, m=0, transform=None):
     else:
         fc = 'none'
 
+    titles = {
+            0 : 'Light off',
+            234 : 'Cue-period light',
+            8 : 'Delay-period light',
+            }
+
     rect = pl.Rectangle((x0,y0), w, h, transform=transform, clip_on=False, edgecolor='k', facecolor=fc, lw=.3)
     ax.add_patch(rect)
+    
+    if titles:
+        ax.text(x0+w/2, y0+h+h/2, titles[m], fontsize=FS-1, ha='center', va='center', transform=transform)
 
     if m==67:
         wi = w/3
@@ -1617,6 +1760,7 @@ def mini_light_delivery_schematic(ax, x0, y0, w, h, m=0, transform=None):
         wi = 0.21*w
         rect = pl.Rectangle((x0+w, y0), wi, h, transform=transform, clip_on=False, facecolor='dodgerblue', lw=0, zorder=0)
         ax.add_patch(rect)
+
 
 def easy_trials(axs, panel_id, manips=[0,2,3,4]):
     ax = axs[panel_id]

@@ -1,18 +1,18 @@
 """
-Figure 4: DDM
+Figure S6: simulation for ddm
 """
 import matplotlib.pyplot as pl
 from figure_panels import *
 
 ## Setup figure ##
-fig_id = 'fig4'
-figw,figh = 6.,4.2
+fig_id = 'sfig6'
+figw,figh = 6.,2.2
 fig = pl.figure(fig_id, figsize=(figw,figh))
 
-row_bottoms = [.6, .1]
-letter_ys = [.94, .42, 0, 0, 0]
+row_bottoms = [.18]
+letter_ys = [.97, .63, 0, 0, 0]
 letter_xs = [.01, .01, .01, .01, .01,.01,.01,.01,.01]
-letters = ['A','','', '', '','B','','','']
+letters = ['','','', '', '','','','','']
 letters = [l.upper() for l in letters]
 
 let_kw = dict(fontsize=9, fontname='Arial', weight='bold')
@@ -40,20 +40,6 @@ boxes       =       [
                           .8 ,
                           1.1 ],
                         
-                        #[ 0, # 4
-                        #  0.86,
-                        #  .6 ,
-                        #  1.1 ],
-                        
-                        [ 1, # 5
-                          0.2,
-                          1.2 ,
-                          1.2 ],
-                        
-                        [ 1, # 6
-                          0.6,
-                          1.2 ,
-                          1.2 ],
                         
                         ]
 
@@ -68,12 +54,10 @@ boxes = [[b[1], row_bottoms[b[0]], b[2], b[3]] for b in boxes]
 axs = [fig.add_axes(box) for box in boxes]
 
 ## Draw panels
-axs = ddm_params_julia_bootstrap(axs, panel_id=0, param_idx=0, yticklabels=True)
-axs = ddm_params_julia_bootstrap(axs, panel_id=1, param_idx=1)
-axs = ddm_params_julia_bootstrap(axs, panel_id=2, param_idx=2)
-axs = ddm_params_julia_bootstrap(axs, panel_id=3, param_idx=4)
-axs = likelihood_landscape_julia(axs, panel_id=4, param_idxs=[4,2], manip=234, ylab=True, xlab=True)
-axs = likelihood_landscape_julia(axs, panel_id=5, param_idxs=[4,2], manip=8, yticklabs=False, cbar=True, xlab=True)
+axs = ddm_params_julia_bootstrap(axs, panel_id=0, param_idx=0, manips=['0_sub6000flip25',0], yticklabels='text')
+axs = ddm_params_julia_bootstrap(axs, panel_id=1, param_idx=1, manips=['0_sub6000flip25',0])
+axs = ddm_params_julia_bootstrap(axs, panel_id=2, param_idx=2, manips=['0_sub6000flip25',0])
+axs = ddm_params_julia_bootstrap(axs, panel_id=3, param_idx=4, manips=['0_sub6000flip25',0])
 
 prettify_axes(axs)
 
