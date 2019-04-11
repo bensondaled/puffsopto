@@ -1,19 +1,19 @@
 """
-Figure S4: simulation for regressions
+Figure S4: opto behaviour extra details
 """
 import matplotlib.pyplot as pl
 from figure_panels import *
 
 ## Setup figure ##
 fig_id = 'sfig4'
-figw,figh = 6.,6
+figw,figh = 3.35,3.8
 fig = pl.figure(fig_id, figsize=(figw,figh))
 
-row_bottoms = [.74, .52, .3, .08]
-letter_ys = [.97, .63, 0, 0, 0]
-letter_xs = [.01]*16
-letters = ['']*16
-letters = [l.upper() for l in letters]
+row_bottoms = [.78, .45, .12]
+letter_ys = [.98, .6, .3, 0, 0, 0, 0, 0]
+letter_xs = [.01, .21, .01, .01, .8,.01,.01,.01,.01]
+letters = ['a','','', 'b', '','','c','','']
+#letters = [l.upper() for l in letters]
 
 let_kw = dict(fontsize=9, fontname='Arial', weight='bold')
 
@@ -21,85 +21,49 @@ let_kw = dict(fontsize=9, fontname='Arial', weight='bold')
 boxes       =       [   
                          
                         [ 0, # 0
-                          0.2,
-                          .8 ,
-                          1.1 ],
-
+                          0.17,
+                          .6,
+                          .6 ],
+                        
                         [ 0, # 1
-                          0.4,
-                          .8 ,
-                          1.1 ],
+                          0.44,
+                          .6,
+                          .6 ],
                         
                         [ 0, # 2
-                          0.6,
-                          .8 ,
-                          1.1 ],
-                        
-                        [ 0, # 3
-                          0.8,
-                          .8 ,
-                          1.1 ],
-                        
-                        [ 1, # 0
-                          0.2,
-                          .8 ,
-                          1.1 ],
-
-                        [ 1, # 1
-                          0.4,
-                          .8 ,
-                          1.1 ],
-                        
-                        [ 1, # 2
-                          0.6,
-                          .8 ,
-                          1.1 ],
+                          0.71,
+                          .6,
+                          .6 ],
                         
                         [ 1, # 3
-                          0.8,
-                          .8 ,
-                          1.1 ],
+                          0.17,
+                          .6,
+                          .6 ],
                         
-                        [ 2, # 0
-                          0.2,
-                          .8 ,
-                          1.1 ],
-
-                        [ 2, # 1
-                          0.4,
-                          .8 ,
-                          1.1 ],
+                        [ 1, # 4
+                          0.44,
+                          .6,
+                          .6 ],
                         
-                        [ 2, # 2
-                          0.6,
-                          .8 ,
-                          1.1 ],
+                        [ 1, # 5
+                          0.71,
+                          .6,
+                          .6 ],
                         
-                        [ 2, # 3
-                          0.8,
-                          .8 ,
-                          1.1 ],
+                        [ 2, # 6
+                          0.17,
+                          .6,
+                          .6 ],
                         
-                        [ 3, # 0
-                          0.2,
-                          .8 ,
-                          1.1 ],
-
-                        [ 3, # 1
-                          0.4,
-                          .8 ,
-                          1.1 ],
+                        [ 2, # 7
+                          0.44,
+                          .6,
+                          .6 ],
                         
-                        [ 3, # 2
-                          0.6,
-                          .8 ,
-                          1.1 ],
-                        
-                        [ 3, # 3
-                          0.8,
-                          .8 ,
-                          1.1 ],
-                        
+                        [ 2, # 8
+                          0.71,
+                          .6,
+                          .6 ],
                         
                         ]
 
@@ -114,22 +78,15 @@ boxes = [[b[1], row_bottoms[b[0]], b[2], b[3]] for b in boxes]
 axs = [fig.add_axes(box) for box in boxes]
 
 ## Draw panels
-axs = impairment_simulation(axs, panel_id=0, agent=0, man=0)
-axs = impairment_simulation(axs, panel_id=1, agent=0, man=5)
-axs = impairment_simulation(axs, panel_id=2, agent=0, man=6)
-axs = impairment_simulation(axs, panel_id=3, agent=0, man=7)
-axs = impairment_simulation(axs, panel_id=4, agent=1, man=0)
-axs = impairment_simulation(axs, panel_id=5, agent=1, man=5)
-axs = impairment_simulation(axs, panel_id=6, agent=1, man=6)
-axs = impairment_simulation(axs, panel_id=7, agent=1, man=7)
-axs = impairment_simulation(axs, panel_id=8, agent=2, man=0)
-axs = impairment_simulation(axs, panel_id=9, agent=2, man=5)
-axs = impairment_simulation(axs, panel_id=10, agent=2, man=6)
-axs = impairment_simulation(axs, panel_id=11, agent=2, man=7)
-axs = impairment_simulation(axs, panel_id=12, agent=3, man=0)
-axs = impairment_simulation(axs, panel_id=13, agent=3, man=5)
-axs = impairment_simulation(axs, panel_id=14, agent=3, man=6)
-axs = impairment_simulation(axs, panel_id=15, agent=3, man=7)
+axs = fracs_scatter(axs, panel_id=0, manips=[0,2], xlab=False)
+axs = fracs_scatter(axs, panel_id=1, manips=[0,3], ylab=False)
+axs = fracs_scatter(axs, panel_id=2, manips=[0,4], ylab=False, xlab=False)
+axs = heatmap(axs, panel_id=3, manip=2, cbar=False, xlab=False)
+axs = heatmap(axs, panel_id=4, manip=3, cbar=False, ylab=False)
+axs = heatmap(axs, panel_id=5, manip=4, cbar=True, ylab=False, xlab=False)
+axs = regs_rl(axs, panel_id=6, manips=[2], ylab=True, annotations=True)
+axs = regs_rl(axs, panel_id=7, manips=[3])
+axs = regs_rl(axs, panel_id=8, manips=[4])
 
 prettify_axes(axs)
 

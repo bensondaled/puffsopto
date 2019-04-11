@@ -163,6 +163,11 @@ for man in [0,(0,(2,3,4)),(0,(5,6,7,8)),2,3,4,5,6,7,8]:
     regr = regress(densityi, **reg_kw)
     with h5py.File(dest_path) as h:
         df_to_h5(h, data=regr, grp=f'regr_manip{man}{reqstr}')
+    # regressions L and R separate
+    regr_rl = regress(densityi, r_and_l=True, **reg_kw)
+    if SAVE:
+        with h5py.File(dest_path) as h:
+            df_to_h5(h, data=regr_rl, grp=f'regrRL_manip{manstr}{reqstr}')
 
     # stats (regression 95% or 99% ci for significance)
     rkw = reg_kw.copy()

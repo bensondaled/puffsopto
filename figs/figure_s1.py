@@ -6,13 +6,13 @@ from figure_panels import *
 
 ## Setup figure ##
 fig_id = 'sfig1'
-figw,figh = 6.,1.7
+figw,figh = 3.35,1.5
 fig = pl.figure(fig_id, figsize=(figw,figh))
 
-row_bottoms = [.2]
+row_bottoms = [.19]
 letter_ys = [.9, .63, 0, 0, 0]
-letter_xs = [.06, .36, .76,]
-letters = ['a','b','c',]
+letter_xs = [.01, .53, .76,]
+letters = ['a','b','c','d','e','f']
 #letters = [l.upper() for l in letters]
 
 let_kw = dict(fontsize=9, fontname='Arial', weight='bold')
@@ -26,14 +26,10 @@ boxes       =       [
                           1. ],
 
                         [ 0, # 1
-                          0.38,
+                          0.63,
                           1. ,
                           1. ],
                         
-                        [ 0, # 2
-                          0.78,
-                          1.,
-                          1. ],
                         
                         ]
 
@@ -49,8 +45,7 @@ axs = [fig.add_axes(box) for box in boxes]
 
 ## Draw panels
 axs = psy_bsl(axs, panel_id=0)
-axs = heatmap(axs, panel_id=1)
-axs = regr_bsl(axs, panel_id=2)
+axs = regr_bsl(axs, panel_id=1)
 
 prettify_axes(axs)
 

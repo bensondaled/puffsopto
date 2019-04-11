@@ -6,13 +6,13 @@ from figure_panels import *
 
 ## Setup figure ##
 fig_id = 'fig3'
-figw,figh = 6.,2.5 #4.2
+figw,figh = 6.,3.8 #4.2
 fig = pl.figure(fig_id, figsize=(figw,figh))
 
-row_bottoms = [.2, .1]
-letter_ys = [.94, .42, 0, 0, 0]
-letter_xs = [.01, .01, .01, .01, .01,.01,.01,.01,.01]
-letters = ['','','', '', '','b','','','']
+row_bottoms = [.6, .04]
+letter_ys = [.97, .37, 0, 0, 0]
+letter_xs = [.04] * 10
+letters = ['a','','', '', 'b','','','','']
 #letters = [l.upper() for l in letters]
 
 let_kw = dict(fontsize=9, fontname='Arial', weight='bold')
@@ -23,37 +23,38 @@ boxes       =       [
                         [ 0, # 0
                           0.2,
                           .8 ,
-                          1.5 ],
+                          1.1 ],
 
                         [ 0, # 1
                           0.4,
                           .8 ,
-                          1.5 ],
+                          1.1 ],
                         
                         [ 0, # 2
                           0.6,
                           .8 ,
-                          1.5 ],
+                          1.1 ],
                         
                         [ 0, # 3
                           0.8,
                           .8 ,
-                          1.5 ],
+                          1.1 ],
                         
-                        #[ 0, # 4
-                        #  0.86,
-                        #  .6 ,
-                        #  1.1 ],
+                        [ 1, # 4
+                          0.2,
+                          3.5 ,
+                          .95 ],
                         
                         #[ 1, # 5
-                        #  0.2,
-                        #  1.2 ,
-                        #  1.2 ],
+                        #  0.5,
+                        #  .6 ,
+                        #  .9 ],
                         
                         #[ 1, # 6
-                          #0.6,
-                          #1.2 ,
-                          #1.2 ],
+                        #  0.8,
+                        #  .6 ,
+                        #  .9 ],
+                        
                         
                         ]
 
@@ -67,11 +68,21 @@ boxes = [[b[1], row_bottoms[b[0]], b[2], b[3]] for b in boxes]
 # draw axes
 axs = [fig.add_axes(box) for box in boxes]
 
-## Draw panels
-axs = ddm_params_julia_bootstrap(axs, panel_id=0, param_idx=0, yticklabels=True)
-axs = ddm_params_julia_bootstrap(axs, panel_id=1, param_idx=1)
-axs = ddm_params_julia_bootstrap(axs, panel_id=2, param_idx=2)
-axs = ddm_params_julia_bootstrap(axs, panel_id=3, param_idx=4)
+## Draw panels -- comments are for variations
+axs = ddm_params_julia_bootstrap(axs, panel_id=0, param_idx=0, yticklabels=True, )
+        #manips=['8_nobias','234_nobias','0_nobias'], reference='0_nobias')
+axs = ddm_params_julia_bootstrap(axs, panel_id=1, param_idx=1,)
+        #manips=['8_nobias','234_nobias','0_nobias'], reference='0_nobias')
+axs = ddm_params_julia_bootstrap(axs, panel_id=2, param_idx=2,)
+        #manips=['8_nobias','234_nobias','0_nobias'], reference='0_nobias')
+axs = ddm_params_julia_bootstrap(axs, panel_id=3, param_idx=4,)
+#        manips=['8_nobias','234_nobias','0_nobias'], reference='0_nobias')
+
+#axs = ddm_params_julia_bootstrap(axs, panel_id=3, param_idx=3,
+#        manips=['8_nobias','234_nobias','0_nobias'], reference='0_nobias')
+
+axs = ddm_simulation(axs, panel_id=4)
+
 #axs = likelihood_landscape_julia(axs, panel_id=4, param_idxs=[4,2], manip=234, ylab=True, xlab=True)
 #axs = likelihood_landscape_julia(axs, panel_id=5, param_idxs=[4,2], manip=8, yticklabs=False, cbar=True, xlab=True)
 

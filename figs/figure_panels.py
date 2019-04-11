@@ -22,8 +22,6 @@ sem = lambda *args,**kwargs: scisem(*args, ddof=1, **kwargs)
 from skimage.exposure import equalize_adapthist as clahe
 from statsmodels.stats.proportion import proportion_confint
 from statsmodels.stats.proportion import proportions_ztest
-from statsmodels import robust
-mad = robust.mad
 from matplotlib.patches import Ellipse
 from matplotlib.transforms import Affine2D, blended_transform_factory as blend
 from matplotlib.text import TextPath
@@ -45,6 +43,7 @@ mcols = {
             6: 'darkcyan',#[.62, .4, .22],
             7: 'steelblue',#[1., .71, .41],
             8: 'lightslategrey',
+            234: 'dodgerblue'
         }
 
 mlabs = {
@@ -52,9 +51,9 @@ mlabs = {
         2 : 'Bilateral',
         3 : 'Left',
         4 : 'Right',
-        5 : 'CP1',
-        6 : 'CP2',
-        7 : 'CP3',
+        5 : '1st third',
+        6 : '2nd third',
+        7 : '3rd third',
         8 : 'Delay',
         }
 
@@ -87,16 +86,16 @@ def psy_bsl(axs, panel_id):
     ax.set_xticks([-12,0,12])
     ax.set_yticks([0,.5,1])
     ax.set_yticklabels(['0','.5','1'])
-    ax.set_xlabel('#R-#L puffs', fontsize=FS, labelpad=0)
+    ax.set_xlabel('#R-#L puffs', fontsize=FS, labelpad=2)
     ax.set_ylabel('Fraction R choices', fontsize=FS, labelpad=0)
-    ax.tick_params(labelsize=FS, pad=.01)
+    ax.tick_params(labelsize=FS, pad=2)
 
     ax.text(.25, .8, f'{len(dats)-1} mice', fontsize=FS-1, ha='center', va='center', transform=ax.transAxes, color='grey')
     ax.text(.25, .7, f'{ntrials:,.0f} trials', fontsize=FS-1, ha='center', va='center', transform=ax.transAxes, color='k')
 
     return axs
 
-def impairment_simulation(axs, panel_id, agent=0, man=0):
+def impairment_simulation(axs, panel_id, agent=0, man=0, title=False):
     ax = axs[panel_id]
 
     titles = {
@@ -122,11 +121,11 @@ def impairment_simulation(axs, panel_id, agent=0, man=0):
         ax.text(1.2, -.3, 'Time in trial (s)', fontsize=FS, ha='center', va='center', transform=ax.transAxes)
     
     ax.set_ylim([0, .25])
-    ax.set_yticks([0,.25])
-    ax.set_yticklabels(['0','1'])
-    ax.set_xticks([1,2,3])
+    ax.set_yticks([0,.125,.25])
+    ax.set_yticklabels(['0','','1'])
+    ax.set_xticks(regr.index)
+    ax.set_xticklabels(['{:0.2f}'.format(i) for i in ax.get_xticks()], rotation=0)
     ax.set_xlim([0,3.8])
-
 
     if agent != 3:
         ax.set_xticklabels([])
@@ -134,7 +133,10 @@ def impairment_simulation(axs, panel_id, agent=0, man=0):
     if man != 0:
         ax.set_yticklabels([])
 
-    ax.tick_params(labelsize=FS)
+    if title:
+        ax.text(1.25, 1.25, 'Expected evidence-weighting trends in distinct impairment scenarios', fontsize=FS, ha='center', va='center', transform=ax.transAxes)
+
+    ax.tick_params(labelsize=FS, pad=2)
 
     return axs
 
@@ -164,28 +166,43 @@ def regr_bsl(axs, panel_id):
     
     ax.set_ylim([-.05, None])
     ax.set_xlim([0.3, 3.5])
+    ax.set_xticks(d.index)
+    ax.set_xticklabels(['{:0.2f}'.format(i) for i in ax.get_xticks()], rotation=0)
     ax.set_yticks([0, .5])
-    ax.set_xlabel('Cue period (s)', fontsize=FS, labelpad=0)
+    ax.set_xlabel('Cue period (s)', fontsize=FS, labelpad=2)
     ax.set_ylabel('Weight on evidence', fontsize=FS, labelpad=2)
-    ax.tick_params(labelsize=FS, pad=.01)
+    ax.tick_params(labelsize=FS, pad=2)
 
     return axs
 
-def heatmap(axs, panel_id):
+def heatmap(axs, panel_id, manip=None, cbar=True, ylab=True, xlab=True):
     ax = axs[panel_id]
     x,y,w,h = ax.get_position().bounds
-    cax = ax.figure.add_axes([x+w+.05, y+.08, w/15, h-.16])
 
+    if cbar:
+        if manip is None:
+            cax = ax.figure.add_axes([x+w+.05, y+.08, w/15, h-.16])
+        else:
+            cax = ax.figure.add_axes([x+w+.05, y+.06, w/15, h/2])
+    
     with h5py.File(data_file) as h:
-        hm = np.array(h['meta_heatmap']).T
+        if manip is None:
+            hm = np.array(h['meta_heatmap'])
+        else:
+            hm = np.array(h[f'heatmap_manip{manip}']['heatmap'])
+    
+    assert np.nanmin(hm)>=0
+    assert np.nanmax(hm)<=1
+    ims = ax.imshow(hm.T, cmap=pl.cm.RdBu_r, origin='lower', vmin=0, vmax=1)
 
-    ims = ax.imshow(hm, cmap=pl.cm.PRGn, origin='lower', vmin=0, vmax=1)
-    cb = pl.colorbar(ims, cax=cax)
-    cb.set_ticks([])
-    cb.outline.set_linewidth(0)
-    cb.ax.tick_params(labelsize=FS)
-    cax.text(.5, -.3, '100% L\nchoices', fontsize=FS-2, ha='center', va='center', transform=cax.transAxes)
-    cax.text(.5, 1.3, '100% R\nchoices', fontsize=FS-2, ha='center', va='center', transform=cax.transAxes)
+    if cbar:
+        cb = pl.colorbar(ims, cax=cax)
+        cb.set_ticks([])
+        cb.outline.set_linewidth(0)
+        cb.ax.tick_params(labelsize=FS)
+
+        cax.text(.5, -.3, '100% L\nchoices', fontsize=FS-2, ha='center', va='center', transform=cax.transAxes)
+        cax.text(.5, 1.3, '100% R\nchoices', fontsize=FS-2, ha='center', va='center', transform=cax.transAxes)
 
     ax.set_xlim([-.5, 13.5])
     ax.set_ylim([-.5, 13.5])
@@ -196,12 +213,21 @@ def heatmap(axs, panel_id):
     ax.set_ylabel('#R puffs', fontsize=FS, labelpad=0)
     ax.set_xlabel('#L puffs', fontsize=FS, labelpad=0)
 
+    if ylab is False:
+        ax.set_ylabel('')
+        ax.set_yticklabels([])
+    if xlab is False:
+        ax.set_xlabel('')
+
     ax.tick_params(labelsize=FS, pad=.01)
     
-    axs[panel_id] = [ax,cax]
+    if cbar:
+        axs[panel_id] = [ax,cax]
+    else:
+        axs[panel_id] = ax
     return axs
 
-def psys(axs, panel_id, manips=[0,2], ylab=True, grp='exp', easy=False):
+def psys(axs, panel_id, manips=[0,2], ylab=True, grp='exp', easy=False,title=False):
     """Cue-period bilateral stimulation psychometrics
     """
     ax = axs[panel_id]
@@ -232,7 +258,7 @@ def psys(axs, panel_id, manips=[0,2], ylab=True, grp='exp', easy=False):
         dat = dats[man]
         mean = dat['mean'].values
         yerr = dat[['yerr0','yerr1']].values.T
-        lw = .75# if man==0 else 1
+        lw = .75
         ax.errorbar(dat.index, mean, yerr=yerr, color=mcols[man], lw=lw)
 
         # easy ctrl
@@ -270,16 +296,14 @@ def psys(axs, panel_id, manips=[0,2], ylab=True, grp='exp', easy=False):
         ax.set_ylabel('Fraction R choices', fontsize=FS, labelpad=0)
     ax.set_xlabel('#R-#L puffs', fontsize=FS, labelpad=3)
 
-    if grp == 'ctl':
+    if grp == 'ctl' and title==True:
         pass
-        #ttl = ax.set_title(r'ChR2$^–$ controls', fontsize=FS-1)
-        #ttl.set_position([.5, .93])
+        ttl = ax.text(.5, 1.2, 'No-opsin controls', transform=ax.transAxes, ha='center', va='center', fontsize=FS-1)
 
     # manip-specific labels
     shorts = dict(Bilateral='Bil', Left='L', Right='R')
     if manips == [0,2]:
         lab = mlabs[2]
-        #lab = shorts.get(lab, lab)
         ax.text(.68, .32, lab, color=mcols[2], fontsize=FS-1, ha='center', va='center', transform=ax.transAxes)
         ax.text(.44, .8, 'Light\noff', color=mcols[0], fontsize=FS-1, ha='center', va='center', transform=ax.transAxes)
     elif manips == [0,3,4] or manips == [0,3] or manips == [0,4]:
@@ -393,10 +417,62 @@ def curly_brace(x, y, width=1/8, height=1., curliness=1/np.e, pointing='left', *
     pp = PathPatch(path, facecolor='none', **patch_kw) 
     return pp
 
+def fracs_scatter(axs, panel_id, manips=[0,2], ylab=True, xlab=True):
+    ax = axs[panel_id]
+    
+    pref = ''
+
+    if all([i in [0,2,3,4,234] for i in manips]):
+        reqstr = '_reqbil'
+    elif all([i in [0,5,6,7,8] for i in manips]):
+        reqstr = '_reqsub'
+    else:
+        reqstr = ''
+    
+    # load data
+    dats = {}
+    with h5py.File(data_file) as h:
+        for i in [0]+manips:
+            rstr = reqstr if i==0 else ''
+
+            df = h5_to_df(h, f'{pref}fracs_manip{i}{rstr}')
+            if df is not None:
+                df = df[df.subj!=-1]
+                dats[i] = df
+
+    
+    d0 = dats[manips[0]].frac.values * 100
+    d1 = dats[manips[1]].frac.values * 100
+    ax.scatter(d0, d1, color=mcols[manips[1]], s=1)
+    ax.plot([0,100],[0,100], color='k', lw=.5, ls=':')
+    
+    ax.set_xlim([40,85])
+    ax.set_ylim([40,85])
+    ax.set_xticks([50,80])
+    ax.set_yticks([50,80])
+
+    ax.set_ylabel('% correct\n(light on)', fontsize=FS, labelpad=4)
+    ax.set_xlabel('% correct\n(light off)', fontsize=FS, labelpad=4)
+
+    ax.set_title(mlabs[manips[1]], fontsize=FS, color=mcols[manips[1]])
+
+    if ylab is False:
+        ax.set_ylabel('')
+        ax.set_yticklabels([])
+    if xlab is False:
+        ax.set_xlabel('')
+
+    ax.tick_params(labelsize=FS)
+
+    return axs
+
+
 def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dispmode='pts', show_ctl=True, show_signif=True):
     """Cue-period bilateral stimulation fraction correct
     """
     ax = axs[panel_id]
+
+    ctlcol = 'lightslategrey'
     
     # preferences
     if grp=='exp':
@@ -432,9 +508,19 @@ def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dis
             if df is not None:
                 df = df[df.subj!=-1]
                 dats_ctl[i] = df
-        #lapse_ignoring_cp1 = float(np.array(h['agent_statistics'][f'lapse_ignoring_cp1{suf}']))
-        #lapse_ignoring_cp12 = float(np.array(h['agent_statistics'][f'lapse_ignoring_cp12{suf}']))
-   
+        
+        easy_means = h5_to_df(h, 'easy_means')
+
+    # process easys
+    em = easy_means
+    subjok = [s for s in em.subj.unique() if all([i in em[em.subj==s].manip.unique() for i in [0,2]])]
+    em = em[em.subj.isin(subjok)]
+    em = em[em.manip.isin([0,2])].groupby([em.manip.isin([2]),'subj'])
+    em = em['mean'].mean()
+    em_man = em[True]
+    em_noman = em[False]
+    easy_difs = (em_man-em_noman).values * 100
+
     assert np.all(dats[0].subj.values == dats[manips[0]].subj.values) # maintain order
 
     frs = {dn:dat.frac.values - dats[0].frac.values for dn,dat in dats.items()}
@@ -453,14 +539,14 @@ def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dis
         
         # ctl
         if show_ctl:
-            for row_idx in range(len(dats_ctl[0])):
-                frs_i = np.array([frs_ctl[m][row_idx] for m in manips])
-                ys = frs_i*100
+            ys = frs_ctl[2]*100
+            xs = [len(manips)+jit(.1) for i in range(len(ys))]
+            ax.scatter(xs, ys, c=ctlcol, s=4, edgecolor='none')
 
-                cols = ['lightgrey' for i in manips]
-                xs = [i+jit(.1) for i in range(len(manips))]
-                #ax.plot(xs, ys, color='grey', lw=.25, zorder=0)
-                ax.scatter(xs, ys, c=cols, s=1, edgecolor='none')
+            # easys
+            ys = easy_difs
+            xs = [len(manips)+1+jit(.1) for i in range(len(ys))]
+            ax.scatter(xs, ys, c=ctlcol, s=4, edgecolor='none')
 
     # plot me[di]an lines
     for idx,man in enumerate(manips):
@@ -495,11 +581,24 @@ def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dis
             ax.errorbar(idx, mean, yerr=_sem, color=mcols[man], markersize=0, lw=1)
 
         if man in frs_ctl and grp!='ctl' and show_ctl:
+            # all manips:
+            '''
             ys_ctl = [np.median(frs_ctl[man])*100]*2
             ax.plot(xs, ys_ctl, lw=1, color='grey', alpha=.5)
+            '''
+            # just man2:
+            if man == 2:
+                ys_ctl = [np.mean(frs_ctl[man])*100]*2
+                idx = len(manips)
+                xs = [idx-.1, idx+.1]
+                ax.plot(xs, ys_ctl, lw=2, color=ctlcol, alpha=.5, zorder=1e6)
+    if show_ctl:
+        # easy:
+        ys_ctl = [np.mean(easy_difs)]*2
+        idx = len(manips)+1
+        xs = [idx-.1, idx+.1]
+        ax.plot(xs, ys_ctl, lw=2, color=ctlcol, alpha=.5, zorder=1e6)
      
-    #minn = min([np.median(v) for _,v in frs.items()]) * 100
-    #maxx = max([np.median(v) for _,v in frs.items()]) * 100
     if dispmode == 'pts':
         minn = min([v.min() for _,v in frs.items()]) * 100
         maxx = max([v.max() for _,v in frs.items()]) * 100
@@ -508,29 +607,16 @@ def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dis
         maxx = max([v.mean() for _,v in frs.items()]) * 100
 
     
-    # annotation lines
-    '''
-    trans = blend(ax.transAxes, ax.transData)
-    yvals = [0, -lapse_ignoring_cp1*100, -lapse_ignoring_cp12*100]
-    labs = ['', 'agent that forgets\n1/3 of evidence', 'agent that forgets\n2/3 of evidence']
-    lws = [.5, .25, .25]
-    if labelmode == 0:
-        skip = [.5, 1, 1] # 1 skip all, .5 skip text, 0 skip nothing
-    elif labelmode == 1:
-        skip = [0, 0, 0]
-    for yval,lab,sk,lw in zip(yvals,labs,skip,lws):
-        if sk < 1:
-            ax.plot([0,1], [yval]*2, lw=lw, color='k', ls=':', dashes=[1,1], transform=trans)
-        if sk == 0:
-            ax.text(1.02, yval, lab, fontsize=FS-3, transform=trans, ha='left', va='center')
-    '''
-    
     # aesthetics
-    ax.set_ylim([minn-3, maxx+5])
+    ax.set_ylim([minn-3, maxx+10])
     if grp == 'ctl':
         ax.set_ylim([minn-30, maxx+2])
-    ax.set_xlim([-.5, len(manips)-.5])
-    ax.set_xticks(range(len(manips)))
+        ttl = ax.text(.5, 1.2, 'No-opsin controls', transform=ax.transAxes, ha='center', va='center', fontsize=FS-1)
+    ax.set_xlim([-.5, len(manips)-.5 + 2*show_ctl])
+    if not show_ctl:
+        ax.set_xticks(range(len(manips)))
+    elif show_ctl:
+        ax.set_xticks(range(len(manips)+2))
     ax.set_xticklabels([])
     #ax.set_yticks([0, -30])
     ax.tick_params(labelsize=FS, pad=2)
@@ -541,19 +627,202 @@ def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dis
         ax.plot(xlim, [0,0], lw=.5, ls=':', dashes=[1,1], color='dimgrey')
     
     # labels
+    y = -.06
     shorts = dict(Bilateral='Bilateral', Left='Left', Right='Right')
     for mi,man in enumerate(manips):
         rotation = 0
-        y = -.06
         lab = mlabs[man]
         lab = shorts.get(lab, lab)
         ax.text(mi, y, lab, transform=blend(ax.transData,ax.transAxes), color=mcols[man], fontsize=FS, ha='center', rotation=rotation, va='top')
+    
+    if show_ctl:
+        for mi,lab,fs in zip([len(manips), len(manips)+1],['No-\nopsin','Guided\nnon-memory'],[FS-2,FS-2]):
+            ax.text(mi, y, lab, transform=blend(ax.transData,ax.transAxes), color=ctlcol, fontsize=fs, ha='center', rotation=rotation, va='top')
+
+        
     ax.set_ylabel('∆% correct\n(light on - light off)', fontsize=FS, labelpad=5)
-    #ax.set_xlabel('Trial type', fontsize=FS, labelpad=5)
-    #if labelmode==1:
-    #    ax.set_title('Impaired choice accuracy', fontsize=FS)
 
+    # Stats
+    print(f'Fraction correct in manips {manips}')
+    test = ttest_rel
+    for man in manips:
+        d0 = dats[0]
+        dx = dats[man]
+        assert np.all(d0.subj == dx.subj)
+        res = test(d0.frac.values, dx.frac.values)
+        print(f'\tControl vs Man{man}: p={res.pvalue:0.4f}')
+        
+        # Ctl
+        d0 = dats_ctl[0]
+        dx = dats_ctl[man]
+        assert np.all(d0.subj == dx.subj)
+        res = test(d0.frac.values, dx.frac.values)
+        print(f'\tChR-: Control vs Man{man}: p={res.pvalue:0.4f}')
 
+    return axs
+
+def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dispmode='pts', show_ctl=True, show_signif=True):
+    """Cue-period bilateral stimulation fraction correct
+    """
+    ax = axs[panel_id]
+
+    ctlcol = 'lightslategrey'
+    
+    # preferences
+    if grp=='exp':
+        pref = ''
+    elif grp=='ctl':
+        pref='ctl_'
+
+    if hard:
+        suf = '_hard'
+    else:
+        suf = ''
+    
+    if all([i in [0,2,3,4] for i in manips]):
+        reqstr = '_reqbil'
+    elif all([i in [0,5,6,7,8] for i in manips]):
+        reqstr = '_reqsub'
+    else:
+        reqstr = ''
+    
+    # load data
+    dats = {}
+    dats_ctl = {}
+    with h5py.File(data_file) as h:
+        for i in [0]+manips:
+            rstr = reqstr if i==0 else ''
+
+            df = h5_to_df(h, f'{pref}fracs_manip{i}{rstr}{suf}')
+            if df is not None:
+                df = df[df.subj!=-1]
+                dats[i] = df
+
+            df = h5_to_df(h, f'ctl_fracs_manip{i}{rstr}{suf}')
+            if df is not None:
+                df = df[df.subj!=-1]
+                dats_ctl[i] = df
+        
+        easy_means = h5_to_df(h, 'easy_means')
+
+    # process easys
+    em = easy_means
+    subjok = [s for s in em.subj.unique() if all([i in em[em.subj==s].manip.unique() for i in [0,2]])]
+    em = em[em.subj.isin(subjok)]
+    em = em[em.manip.isin([0,2])].groupby([em.manip.isin([2]),'subj'])
+    em = em['mean'].mean()
+    em_man = em[True]
+    em_noman = em[False]
+    easy_difs = (em_man-em_noman).values * 100
+
+    assert np.all(dats[0].subj.values == dats[manips[0]].subj.values) # maintain order
+
+    frs = {dn:dat.frac.values - dats[0].frac.values for dn,dat in dats.items()}
+    frs_ctl = {dn:dat.frac.values - dats_ctl[0].frac.values for dn,dat in dats_ctl.items() if dat is not None}
+    
+    # plot individual data points
+    if dispmode == 'pts':
+        for row_idx in range(len(dats[0])):
+            frs_i = np.array([frs[m][row_idx] for m in manips])
+            ys = frs_i*100
+
+            cols = [mcols[i] for i in manips]
+            xs = [i+jit(.04) for i in range(len(manips))]
+            ax.scatter(xs, ys, c=cols, s=4, edgecolor='none')
+        
+        # ctl
+        if show_ctl:
+            ys = frs_ctl[2]*100
+            xs = [len(manips)+jit(.1) for i in range(len(ys))]
+            ax.scatter(xs, ys, c=ctlcol, s=4, edgecolor='none')
+
+            # easys
+            ys = easy_difs
+            xs = [len(manips)+1+jit(.1) for i in range(len(ys))]
+            ax.scatter(xs, ys, c=ctlcol, s=4, edgecolor='none')
+
+    for idx,man in enumerate(manips):
+        
+        mean = np.mean(frs[man])*100
+        xs = [idx-.1, idx+.1]
+        ys = [mean]*2
+        if dispmode in ['pts']:
+            ax.plot(xs, ys, lw=2, color=mcols[man], alpha=.5)
+    
+            # signif lines
+            if show_signif:
+                x0 = idx+.2
+                col = 'k'
+                # curly brace:
+                cb = curly_brace(x=x0, y=0, width=.2, height=mean, pointing='right', transform=ax.transData, lw=.5, edgecolor='dimgrey')
+                ax.add_patch(cb)
+                ax.text(x0+.3, mean/2-.4, r'$\ast$', clip_on=False, ha='center', va='center', fontsize=FS-3, color='dimgrey')
+
+        if dispmode in ['agg']:
+            ax.plot(np.mean(xs), ys[0], lw=.5, color=mcols[man], marker='o', markersize=2)
+
+        _sem = 100*sem(frs[man])
+        iqr = 100*np.percentile(frs[man], [25,75])[:,None]
+        iqr = np.abs(median-iqr)
+        if dispmode == 'agg':
+            ax.errorbar(idx, mean, yerr=_sem, color=mcols[man], markersize=0, lw=1)
+
+        if man in frs_ctl and grp!='ctl' and show_ctl:
+            # just man2:
+            if man == 2:
+                ys_ctl = [np.mean(frs_ctl[man])*100]*2
+                idx = len(manips)
+                xs = [idx-.1, idx+.1]
+                ax.plot(xs, ys_ctl, lw=2, color=ctlcol, alpha=.5, zorder=1e6)
+    if show_ctl:
+        # easy:
+        ys_ctl = [np.mean(easy_difs)]*2
+        idx = len(manips)+1
+        xs = [idx-.1, idx+.1]
+        ax.plot(xs, ys_ctl, lw=2, color=ctlcol, alpha=.5, zorder=1e6)
+     
+    if dispmode == 'pts':
+        minn = min([v.min() for _,v in frs.items()]) * 100
+        maxx = max([v.max() for _,v in frs.items()]) * 100
+    elif dispmode == 'agg':
+        minn = min([v.mean() for _,v in frs.items()]) * 100
+        maxx = max([v.mean() for _,v in frs.items()]) * 100
+
+    
+    # aesthetics
+    ax.set_ylim([minn-3, maxx+10])
+    if grp == 'ctl':
+        ax.set_ylim([minn-30, maxx+2])
+        ttl = ax.text(.5, 1.2, 'No-opsin controls', transform=ax.transAxes, ha='center', va='center', fontsize=FS-1)
+    ax.set_xlim([-.5, len(manips)-.5 + 2*show_ctl])
+    if not show_ctl:
+        ax.set_xticks(range(len(manips)))
+    elif show_ctl:
+        ax.set_xticks(range(len(manips)+2))
+    ax.set_xticklabels([])
+    #ax.set_yticks([0, -30])
+    ax.tick_params(labelsize=FS, pad=2)
+    
+    # chance line
+    if labelmode == 0:
+        xlim = ax.get_xlim()
+        ax.plot(xlim, [0,0], lw=.5, ls=':', dashes=[1,1], color='dimgrey')
+    
+    # labels
+    y = -.06
+    shorts = dict(Bilateral='Bilateral', Left='Left', Right='Right')
+    for mi,man in enumerate(manips):
+        rotation = 0
+        lab = mlabs[man]
+        lab = shorts.get(lab, lab)
+        ax.text(mi, y, lab, transform=blend(ax.transData,ax.transAxes), color=mcols[man], fontsize=FS, ha='center', rotation=rotation, va='top')
+    
+    if show_ctl:
+        for mi,lab,fs in zip([len(manips), len(manips)+1],['No-\nopsin','Guided\nnon-memory'],[FS-2,FS-2]):
+            ax.text(mi, y, lab, transform=blend(ax.transData,ax.transAxes), color=ctlcol, fontsize=fs, ha='center', rotation=rotation, va='top')
+
+        
+    ax.set_ylabel('∆% correct\n(light on - light off)', fontsize=FS, labelpad=5)
 
     # STATS
     print(f'Fraction correct in manips {manips}')
@@ -574,15 +843,57 @@ def fracs(axs, panel_id, manips=[2,3,4], grp='exp', hard=False, labelmode=0, dis
 
     return axs
 
-def reg_by_subj(axs, panel_id, manip=7):
-
-    # CURRENTLY NOT IN USE
-
+def psy_easy(axs, panel_id, manips=[0,2]):
     ax = axs[panel_id]
     
-    if all([i in [0,2,3,4] for i in manips]):
+    dats = {}
+    with h5py.File(data_file) as h:
+        for m in manips:
+            dats[m] = h5_to_df(h, f'psy_t9_manip{m}')
+
+    for mani,man in enumerate(manips):
+        dat = dats[man]
+        mean = dat['mean'].values
+        yerr = dat[['yerr0','yerr1']].values.T
+        ax.errorbar(dat.index, mean, yerr=yerr, color=mcols[man], lw=.75)
+
+        print(f'Non-memory, Man {man}')
+        print(f'\t {dat["len"].sum():0.0f} trials')
+        
+    ax.text(.38, .8, 'Light\noff', color=mcols[0], fontsize=FS-1, ha='center', va='center', transform=ax.transAxes)
+    ax.text(.7, .3, 'Bilateral', color=mcols[2], fontsize=FS-1, ha='center', va='center', transform=ax.transAxes)
+    
+    ax.set_ylim([-.01,1])
+    ax.set_xlim([-16,16])
+    ax.set_xticks([-12, 0, 12])
+    ax.set_yticks([0,.5,1])
+    ax.set_yticklabels(['0','','1'])
+    ax.tick_params(labelsize=FS, pad=2)
+    
+    ax.set_ylabel('Fraction R choices', fontsize=FS, labelpad=0)
+    ax.set_xlabel('#R-#L puffs', fontsize=FS, labelpad=3)
+    ttl = ax.text(.5, 1.2, 'Guided non-memory controls', transform=ax.transAxes, ha='center', va='center', fontsize=FS-1)
+
+    return axs
+
+def reg_by_subj(axs, panel_id, manip=7, title=False, xticklabs=False, ylab=False):
+    ax = axs[panel_id]
+
+    fig = ax.figure
+    x,y,w,h = ax.get_position().bounds
+    ax.remove()
+    
+    w = w/11
+    pad = w/2
+    new_axs = []
+    for i in range(8):
+        ax = fig.add_axes([x+i*(w+pad), y, w, h])
+        new_axs.append(ax)
+    axs[panel_id] = new_axs
+
+    if manip in [2,3,4]:
         reqstr = '_reqbil'
-    elif all([i in [0,5,6,7,8] for i in manips]):
+    elif manip in [5,6,7,8]:
         reqstr = '_reqsub'
     else:
         reqstr = ''
@@ -592,9 +903,52 @@ def reg_by_subj(axs, panel_id, manip=7):
         for i in [manip]+[0]:
             rstr = reqstr if i==0 else ''
             dats[i] = np.array(h[f'regr_subj_manip{i}{rstr}'])
+        time = np.array(h5_to_df(h, f'regr_manip0').index)
     
-    regs = {dn: (dat - dats[0])[:,0] for dn,dat in dats.items()} # [:,0] for first bin
-    print(regs)
+    for i,ax in enumerate(new_axs):
+        rm = dats[manip][i][...,0]
+        re = dats[manip][i][...,1]
+        r0 = dats[0][i][...,0]
+        r0e = dats[0][i][...,1]
+        ax.errorbar(time, rm, yerr=re, color=mcols[manip], lw=.75)
+        ax.errorbar(time, r0, yerr=r0e, color=mcols[0], lw=.75)
+        ax.tick_params(labelsize=FS, pad=2)
+        ax.set_ylim([-.39, .75])
+        ax.set_xlim([0,3.9])
+        ax.set_xticks(time)
+        ax.set_xticklabels(['{:0.2f}'.format(i) for i in ax.get_xticks()], rotation=90)
+        if not xticklabs:
+            ax.set_xticklabels([])
+        if i != 0:
+            ax.set_yticklabels([])
+
+    if title:
+        at = new_axs[3]
+        at.text(1., 1.3, '← Individual subjects →', ha='center', va='center', fontsize=FS, transform=at.transAxes)
+    if xticklabs:
+        at = new_axs[3]
+        at.text(1., -.8, 'Time in cue period (s)', ha='center', va='center', fontsize=FS, transform=at.transAxes)
+    if ylab:
+        at = new_axs[0]
+        at.text(-.7, 1.1, 'Weight on evidence', ha='center', va='center', fontsize=FS, transform=at.transAxes, rotation=90)
+    
+    # indicate manipulation condition
+    # with text
+    at = new_axs[-1]
+    at.text(1.1, .5, mlabs[manip], ha='left', va='center', fontsize=FS-2, transform=at.transAxes, color=mcols[manip])
+    # or with drawing
+    light_times = {
+                2: [0,3.8],
+                3: [0,3.8],
+                4: [0,3.8],
+                5: [0,3.8/3],
+                6: [3.8/3,2*3.8/3],
+                7: [2*3.8/3,3.8],
+            }
+    t0,t1 = light_times[manip]
+    for ax in new_axs:
+        rect = pl.Rectangle((t0,1.01), t1-t0, .03, color=mcols[manip], transform=blend(ax.transData,ax.transAxes), clip_on=False)
+        ax.add_patch(rect)
 
     return axs
 
@@ -612,7 +966,7 @@ def reg_difs(axs, panel_id, manips=[5,6,7,8]):
     with h5py.File(data_file) as h:
         for i in manips+[0]:
             rstr = reqstr if i==0 else ''
-            dats[i] = np.array(h[f'regr_subj_manip{i}{rstr}'])
+            dats[i] = np.array(h[f'regr_subj_manip{i}{rstr}'])[...,0]
     
     regs = {dn: (dat - dats[0])[:,0] for dn,dat in dats.items()} # [:,0] for first bin
 
@@ -622,8 +976,6 @@ def reg_difs(axs, panel_id, manips=[5,6,7,8]):
 
         cols = [mcols[i] for i in manips]
         xs = [i+jit(.1) for i in range(len(manips))]
-        #ax.plot(xs, ys, color='grey', lw=.25, zorder=0)
-        #ax.scatter(xs, ys, c=cols, s=2, edgecolor='none')
 
     # median lines
     for idx,man in enumerate(manips):
@@ -632,11 +984,8 @@ def reg_difs(axs, panel_id, manips=[5,6,7,8]):
         mean = np.mean(regs[man])
         err = sem(regs[man])
 
-        #ax.plot(xs, ys, lw=2, color=mcols[man], alpha=.5)
         ax.errorbar(idx, mean, yerr=err, color=mcols[man], marker='o', markersize=2, lw=.5)
 
-    #minn = min([v.min() for _,v in regs.items()]) 
-    #maxx = max([v.max() for _,v in regs.items()]) 
     minn = min([np.mean(v) for _,v in regs.items()]) 
     maxx = max([np.mean(v) for _,v in regs.items()]) 
     
@@ -646,19 +995,99 @@ def reg_difs(axs, panel_id, manips=[5,6,7,8]):
     ax.set_ylim([minn-.09, maxx+.09])
     ax.set_xlim([-.5, len(manips)-.5])
     ax.set_xticks([])
-    
-    #for mi,man in enumerate(manips):
-    #    ax.text(mi, -.15, mlabs[man], transform=blend(ax.transData,ax.transAxes), color=mcols[man], fontsize=FS-1, ha='center', rotation=0)
 
     ax.tick_params(labelsize=FS, pad=2)
 
     ax.set_ylabel('∆ weight on early evidence\n(light on - light off)', fontsize=FS, labelpad=5)
-    #ax.set_xlabel('Trial type', fontsize=FS, labelpad=5)
-    #ax.set_title('Reweighting of early evidence', fontsize=FS)
-    
     return axs
 
-def regs(axs, panel_id, manips=[0,2], ylab=True, hard=False, xlab=True, ylim=(-.02,.4), shade=True, annotate=False, main_title=False):
+def regs_xval(axs, panel_id, manips=[0,2,3,4,5,6,7,8]):
+
+    ax = axs[panel_id]
+    
+    if all([i in [0,2,3,4] for i in manips]):
+        reqstr = '_reqbil'
+    elif all([i in [0,5,6,7,8] for i in manips]):
+        reqstr = '_reqsub'
+    else:
+        reqstr = ''
+
+    dats = {}
+    with h5py.File(data_file) as h:
+        for i in manips:
+            rstr = reqstr if i==0 else ''
+            dats[i] = np.array(h['regr_xval'][f'manip{i}{rstr}'])
+
+    for mani,man in enumerate(manips):
+        dman = dats[man] * 100
+        xs = [mani+jit() for _ in dman]
+        ax.plot(xs, dman, lw=0, marker='o', color=mcols[man], markersize=1)
+        ax.plot([mani-.2, mani+.2], [dman.mean()]*2, lw=2, color=mcols[man], alpha=.5)
+    ax.set_xticks([])
+    ax.tick_params(labelsize=FS)
+    ax.set_ylabel('Cross-validated\nprediction accuracy (%)', fontsize=FS, labelpad=2)
+
+    return axs
+
+def regs_rl(axs, panel_id, manips=[0,2], ylab=False, annotations=False):
+    ax = axs[panel_id]
+
+    if all([i in [0,2,3,4] for i in manips]):
+        reqstr = '_reqbil'
+    elif all([i in [0,5,6,7,8] for i in manips]):
+        reqstr = '_reqsub'
+    else:
+        reqstr = ''
+
+    dats = {}
+    dats_nonrl = {}
+    with h5py.File(data_file) as h:
+        for i in manips:
+            rstr = reqstr if i==0 else ''
+            dats[i] = h5_to_df(h, f'regrRL_manip{i}{rstr}')
+            dats_nonrl[i] = h5_to_df(h, f'regr_manip{i}{rstr}')
+    
+    for man in manips:
+        dat = dats[man]
+        dat_nrl = dats_nonrl[man]
+        meanL = np.abs(dat['weight_L'].values)
+        yerrL = dat['yerr_L'].values
+        meanR = dat['weight_R'].values
+        yerrR = dat['yerr_R'].values
+        mean = dat_nrl['weight'].values
+        yerr = dat_nrl['yerr'].values
+
+        ofs = np.linspace(-.05,.05,3)
+        eb = ax.errorbar(dat.index+ofs[0], meanL, yerr=yerrL,
+                color='dimgrey', lw=.75, marker=None, elinewidth=.75,)
+        ax.errorbar(dat.index+ofs[1], meanR, yerr=yerrR,
+                color='darkgrey', lw=.75, marker=None, elinewidth=.75)
+        ax.errorbar(dat.index+ofs[2], mean, yerr=yerr,
+                color=mcols[man], lw=.75, marker=None, elinewidth=.75,
+                zorder=0)
+
+
+    if annotations:
+        ax.text(.9, .6, 'R cues', fontsize=FS-1, ha='center',
+                va='center', transform=ax.transAxes, color='dimgrey')
+        ax.text(.9, .13, 'L cues', fontsize=FS-1, ha='center',
+                va='center', transform=ax.transAxes, color='darkgrey')
+
+    ax.set_ylim([-.07, .28])
+    ax.set_xlim([-.2,4.])
+    ax.set_xticks(dat.index)
+    ax.set_xticklabels(['{:0.2f}'.format(i) for i in ax.get_xticks()], rotation=90)
+    ax.set_yticks([0,.2])
+    ax.set_yticklabels(['0','0.2'])
+    ax.tick_params(labelsize=FS, pad=2)
+    
+    ax.set_xlabel('Cue period (s)', fontsize=FS, labelpad=5)
+    if ylab:
+        ax.set_ylabel('Weight on evidence', fontsize=FS, labelpad=0)
+
+    return axs
+
+def regs(axs, panel_id, manips=[0,2], ylab=True, hard=False, xlab=True, ylim=(-.02,.4), shade=True, annotate=False, main_title=False, xrot=0):
     """Cue-period bilateral stimulation regression
     """
     ax = axs[panel_id]
@@ -681,21 +1110,15 @@ def regs(axs, panel_id, manips=[0,2], ylab=True, hard=False, xlab=True, ylim=(-.
         for i in manips:
             rstr = reqstr if i==0 else ''
             dats[i] = h5_to_df(h, f'regr_manip{i}{rstr}{suf}')
-            #dats_bysub[i] = np.array(h[f'regr_subj_manip{i}{reqstr}'])
-    
-    #regs = {dn: (dat) for dn,dat in dats_bysub.items()}
 
     w567 = 3.8/3
-    #w567 = 1.5/3
     
     ofss = np.linspace(-.05,.05,len(manips))
     for man,ofs in zip(manips, ofss):
         dat = dats[man]
         mean = dat['weight'].values
         yerr = dat['yerr'].values
-        #lw = .75 if man==0 else 1
         ax.errorbar(dat.index+ofs, mean, yerr=yerr, color=mcols[man], lw=.75, marker=None, elinewidth=.75)
-        #ax.plot(dat.index+ofs, regs[man].T, color='grey', lw=.5)
         if man in [5,6,7] and shade:
             ax.axvspan((man-5)*w567, (man-5+1)*w567, color=mcols[man], alpha=.4, lw=0)
         elif man == 8 and shade:
@@ -707,13 +1130,14 @@ def regs(axs, panel_id, manips=[0,2], ylab=True, hard=False, xlab=True, ylim=(-.
 
     ax.set_ylim(ylim)
     ax.set_xlim([-.2,4.])
-    if True:#ylim[1] == .4:
-        ax.set_yticks([0,.2,.4])
-        ax.set_yticklabels(['0','','0.4'])
+    ax.set_xticks(dat.index)
+    ax.set_xticklabels(['{:0.2f}'.format(i) for i in ax.get_xticks()], rotation=xrot)
+    ax.set_yticks([0,.2,.4])
+    ax.set_yticklabels(['0','','0.4'])
     ax.tick_params(labelsize=FS, pad=2)
     
     if xlab:
-        ax.set_xlabel('Cue period (s)', fontsize=FS, labelpad=3)
+        ax.set_xlabel('Cue period (s)', fontsize=FS, labelpad=5)
     if ylab:
         ax.set_ylabel('Weight on evidence', fontsize=FS, labelpad=0)
     if main_title:
@@ -948,7 +1372,7 @@ def task_structure(axs, panel_id):
     stick = .1
    
     # draw mouse
-    axim = draw_im(mouse, .2, 1.5, ax_w/2, ax_h/2)
+    axim = draw_im(mouse, -.7, 0.08, ax_w/2, ax_h)#/2)
 
     tyo = .0033333333 # tick y offset due to line thickness differences
     # phase boundaries
@@ -1076,13 +1500,6 @@ def task_structure(axs, panel_id):
     draw_im(tongue_l, z-2.9*ls/2, yposs[-4]-1.5*ls/2, ls, ls)
     draw_im(tongue_r, z-2.9*ls/2, yposs[-5]-1.5*ls/2, ls, ls)
     
-    """
-    strs = ['Sound cue','Left puff','Right puff','Left lick','Right lick','Water reward']
-    cols = ['k','grey','grey','salmon','salmon','cadetblue']
-    for s,yp,c in zip(strs, yposs[::-1], cols):
-        ax.text(z-.04, yp+ls, s, fontsize=FS-3, ha='right', va='center', transform=ax.transAxes, color=c)
-    """
-
     return axs
 
 def ephys(axs, panel_id, cell_type='pc'):
@@ -1141,12 +1558,87 @@ def ephys(axs, panel_id, cell_type='pc'):
         ax.set_xlim([-1,xmax])
         ax.set_xticks([])
         ax.set_yticks([60, 120])
+        #ax.set_ylim([0,1.5])
         if ax is ax2:
             ax.set_yticklabels([])
 
     for ax in axs[panel_id]:
         ax.tick_params(labelsize=FS, pad=1)
     ax1.set_ylabel('Firing rate\n(Hz)', fontsize=FS, labelpad=2)
+
+    return axs
+
+
+def latency_bysubj(axs, panel_id, manips=[0,2]):
+    ax = axs[panel_id]
+
+    fig = ax.figure
+    x,y,w,h = ax.get_position().bounds
+    ax.remove()
+    
+    w = w/11
+    pad = w/2
+    new_axs = []
+    for i in range(8):
+        ax = fig.add_axes([x+i*(w+pad), y, w, h])
+        new_axs.append(ax)
+    axs[panel_id] = new_axs
+    
+    if all([i in [0,2,3,4] for i in manips]):
+        reqstr = '_reqbil'
+    elif all([i in [0,5,6,7,8] for i in manips]):
+        reqstr = '_reqsub'
+    else:
+        reqstr = ''
+       
+    dats = {}
+    with h5py.File(data_file) as h:
+        grp = h['latency']
+        for subid in range(8):
+            dats[subid] = {}
+            for i in manips:
+                rstr = reqstr if i==0 else ''
+                dats[subid][i] = np.array(grp[f'manip{i}_subj{subid}{rstr}'])
+
+    for i,ax in enumerate(new_axs):
+        dat = dats[i] # subject
+        for mi,man in enumerate(manips):
+            di,_ = dat[man] #/ 1000 # ms to s
+
+            #ax.errorbar(mi, di.mean(), yerr=di.std(ddof=1), color=mcols[man], marker='o', lw=.75, markersize=2.5)
+            
+            bplot = ax.boxplot(di, positions=[mi], showfliers=False, notch=False, widths=[.6], whis=[10,90], bootstrap=1000)
+            for element in ['boxes', 'whiskers', 'fliers', 'means', 'medians', 'caps']:
+                pl.setp(bplot[element], color=mcols[man], linewidth=.5)
+            pl.setp(bplot['caps'], linewidth=0)
+
+        ax.set_xlim([-.5, len(manips)-.5])
+        ax.set_ylim([200,1200])
+        ax.set_xticks([])
+        #ax.spines['bottom'].set_visible(False)
+        ax.set_yticks([300,600,900])
+        if i != 0:
+            ax.set_yticklabels([])
+        if i == 0:
+            ax.set_ylabel('Decision latency (ms)', fontsize = FS, labelpad=4)
+        ax.tick_params(labelsize=FS, pad=1)
+
+    xlax = new_axs[3]
+    xlax.text(1., 1.15, '← Individual subjects →', fontsize=FS, ha='center', va='center', transform=xlax.transAxes)
+    
+    lax = new_axs[0]
+    lax.text(0, .83, 'Light\noff', fontsize=FS-3, color='k', ha='center', va='center', transform=blend(lax.transData,lax.transAxes))
+    lax.text(1, .9, 'Cue-period\nlight', fontsize=FS-3, color=mcols[2], ha='center', va='center', transform=blend(lax.transData,lax.transAxes))
+
+    # stats
+    for (_,sub),ax in zip(dats.items(), new_axs):
+        (d0,d0i), (d1,d1i) = sub[0], sub[manips[1]]
+        d0 = pd.Series(d0).groupby(d0i).mean().values
+        d1 = pd.Series(d1).groupby(d1i).mean().values
+        pval = ttest_ind(d0,d1).pvalue
+        print(pval)
+        if pval < .05 / len(dats):
+            ax.text(.5, .05, r'$\ast$', fontsize=FS-4, ha='center', va='center', transform=ax.transAxes)
 
     return axs
 
@@ -1204,8 +1696,6 @@ def latency(axs, panel_id, manips=[0,2,3,4]):
     ax.tick_params(axis='x', length=0)
     ax.set_ylabel('Decision latency (ms)', fontsize=FS, labelpad=3)
 
-    # FOR STATS: see main.py paired within subjects
-
     return axs
 
 def likelihood_landscape_julia(axs, panel_id, manip=234, param_idxs=[1,2], xlab=False, ylab=False, yticklabs=True, cbar=False):
@@ -1259,18 +1749,6 @@ def likelihood_landscape_julia(axs, panel_id, manip=234, param_idxs=[1,2], xlab=
 
         se_x = 0#se0[param_idxs[0]]
         se_y = 0#se0[param_idxs[1]]
-        #ax.errorbar(params0[param_idxs[0]], params0[param_idxs[1]], color='grey', xerr=se_x, yerr=se_y, lw=.5, marker='o', markersize=2)
-
-    # 95ci lines
-    '''
-    xs,ys = error_ellipse(params, hess, param_idxs, 1.96)
-    ax.plot(xs,ys,color='red', lw=.15)
-    xs,ys = error_ellipse(params0, hess0, param_idxs, 1.96)
-    ax.plot(xs,ys,color='white', lw=.15)
-    '''
-
-    # datapoints from bootstrap
-    #ax.scatter(*bootp.T[param_idxs], color='indigo', marker='.', s=1, alpha=.2, zorder=100)
 
     # bestfit marks
     ax.plot(params[param_idxs[0]], params[param_idxs[1]], marker='x', color=cmap_x(.5), markersize=2, markeredgewidth=.5, alpha=.4)
@@ -1380,8 +1858,6 @@ def likelihood_landscape(axs, panel_id, manip=234, param_idxs=[1,2]):
     exX,eyX = se[p1],params[p0]
 
     ax.errorbar(x0, y0, marker='o', color='lightgrey', markersize=2, lw=0)
-    #ax.errorbar(x0, y0, yerr=ey0, xerr=ex0, color='lightgrey', lw=.5)
-    #ax.errorbar(xX, yX, yerr=eyX, xerr=exX, color='lightblue', lw=.5)
     
     ax.tick_params(labelsize=FS, pad=2)
     ax.set_xlim([i1[0],i1[-1]])
@@ -1397,7 +1873,6 @@ def likelihood_landscape(axs, panel_id, manip=234, param_idxs=[1,2]):
     ax.set_xlabel(names[p1], fontsize=FS, labelpad=-5)
     ax.set_ylabel(names[p0], fontsize=FS, labelpad=-5)
 
-    #ax.set_title(mnames[manip], fontsize=FS)
     # title as schematics
     mini_light_delivery_schematic(x0=.2, y0=1.04, w=.6, h=.1, m=manip, transform=ax.transAxes, ax=ax)
     
@@ -1440,7 +1915,50 @@ def bound_error(e, p, bounds=None):
 
     return np.array(e)[:,None]
 
-def ddm_params_julia_bootstrap(axs, panel_id, param_idx, manips=[8,234,0], yticklabels=False):
+def ddm_xval(axs, panel_id, manips=None):
+    '''Display cross validation scores for julia DDM fits
+    '''
+    ax = axs[panel_id]
+
+    mnames = {0:'Light off',234:'Full CP',67:'Mid-late CP',8:'Delay',
+            '0_sub6000flip25':'Simulated\nimpairment',
+            '0_nolapse':'Light off', '234_nolapse':'Full CP', '8_nolapse':'Delay',
+            5:'1/3', 6:'2/3', 7:'3/3',
+            }
+    
+    accs = {}
+    with h5py.File(data_file) as h:
+        for manip in manips:
+            grp = h[f'ddm_julia_man{manip}']
+            a = np.array(grp['xval_scores'])
+            accs[manip] = a
+   
+    for mi,manip in enumerate(manips):
+        a = accs[manip]
+
+        median = np.median(a)
+
+        # display distribution with kernel density estimate
+        h = .1
+        vio = ax.violinplot(a, positions=[mi], widths=h*2, vert=True)
+        for partname in ('cbars','cmins','cmaxes'):
+            vio[partname].set_edgecolor('grey')
+            vio[partname].set_linewidth(0)
+            vio[partname].set_alpha(0.15)
+        for vp in vio['bodies']:
+            vp.set_facecolor('grey')
+            vp.set_edgecolor('grey')
+            vp.set_linewidth(0)
+            vp.set_alpha(0.15)
+       
+        # show median line
+        ax.plot([mi-h,mi+h], [median]*2, lw=1, color='k')
+        
+    ax.tick_params(labelsize=FS)
+
+    return axs
+
+def ddm_params_julia_bootstrap(axs, panel_id, param_idx, manips=[8,234,0], yticklabels=False, reference=0):
     '''Display best-fit parameters from DDM fits
     '''
     ax = axs[panel_id]
@@ -1459,7 +1977,12 @@ def ddm_params_julia_bootstrap(axs, panel_id, param_idx, manips=[8,234,0], ytick
             '',
             '',
             ]
-    mnames = {0:'Light off',234:'Full CP',67:'Mid-late CP',8:'Delay','0_sub6000flip25':'Simulated\nimpairment'}
+    mnames = {0:'Light off',234:'Full CP',67:'Mid-late CP',8:'Delay',
+            '0_sub6000flip25':'Simulated\nimpairment',
+            '0_nolapse':'Light off', '234_nolapse':'Full CP', '8_nolapse':'Delay',
+            '0_nobias':'Light off', '234_nobias':'Full CP', '8_nobias':'Delay',
+            5:'1/3', 6:'2/3', 7:'3/3',
+            }
     xlim = {2:(-3.1,.3), 0:(-5,80), 1:(-5,420), 4:(-.01,.70), 3:(-2.5,2.5)}
     minmaxs = {0:(0,None), 1: (0,None), 2: None, 3:None, 4:(0,1)}
     
@@ -1471,23 +1994,18 @@ def ddm_params_julia_bootstrap(axs, panel_id, param_idx, manips=[8,234,0], ytick
             params[manip] = p
    
     print(f'DDM params, bootstrap fits, param {param_idx}')
+    val0 = None
     for mi,manip in enumerate(manips):
         p = params[manip][:,param_idx]
         median = np.median(p, axis=0)
         ci_lo, ci_hi = np.percentile(p, [2.5,97.5], axis=0)
          
-        p0 = params[0][:,param_idx]
+        p0 = params[reference][:,param_idx]
         ci0_lo, ci0_hi = np.percentile(p0, [2.5,97.5], axis=0)
         
         print(f'\tManip{manip}\t:\t{ci_lo:0.3f} – {ci_hi:0.3f}')
 
-        #std = p.std(axis=0, ddof=1)     
-        #err = bound_error(std, median, minmaxs[param_idx])
-        iqr_lo,iqr_hi = np.percentile(p, [25,75], axis=0)
-        
         h = .1 # thickness of violins
-
-        #ax.fill_between([ci_lo,ci_hi], mi-h, mi+h, color='dodgerblue', alpha=.1, lw=0)
         
         # display distribution with kernel density estimate
         vio = ax.violinplot(p, positions=[mi], widths=h*2, vert=False)
@@ -1508,19 +2026,18 @@ def ddm_params_julia_bootstrap(axs, panel_id, param_idx, manips=[8,234,0], ytick
         # show median line
         ax.plot([median]*2, [mi-h,mi+h], lw=1, color='k')
         
-        # signifiance markers
-        #if ci_lo>ci0_hi or ci_hi<ci0_lo:
-        #    ax.plot([median]*2, [mi-h,mi+h], lw=.5, color='red')
-
-        # 95ci lines
-        #ax.plot([ci_lo]*2, [mi-h,mi+h], lw=.5, color='dimgrey')
-        #ax.plot([ci_hi]*2, [mi-h,mi+h], lw=.5, color='dimgrey')
-
-        #ax.errorbar(median, mi, xerr=err, marker=None, lw=.5, color='k')
-        #ax.plot([iqr_lo, iqr_hi], [mi]*2, marker=None, lw=.5, color='k')
-        
         if manip == 0:
-            ax.axvline(median, linestyle=':', dashes=[2,3], color='k', lw=.5, zorder=0)
+            ax.axvline(median, linestyle=':', dashes=[1,2], color='k', lw=.5, zorder=0)
+            val0 = median
+    
+    # smaller vertical line indicating no-light value
+    '''
+    span = .2
+    for mi,manip in enumerate(manips):
+        if manip == 0:
+            continue
+        ax.plot([median,median], [mi-span,mi+span], linestyle=':', dashes=[1,1], color='k', lw=.5, zorder=0)
+    '''
 
     if param_idx == 2:
         pass
@@ -1720,6 +2237,72 @@ def ddm_params(axs, panel_id, param_idx, manips=[8,67,0], yticklabels=False):
 
     return axs
 
+def resamp(x, n=2):
+    x = np.asarray(x)
+    assert len(x.shape)==1, 'doesnt handle 2d arrays'
+    x = x.reshape([-1,n]).mean(axis=1)
+    return x
+
+def whisker_tracking(axs, panel_id, manip=None, xticks=False, ylab=False):
+    ax = axs[panel_id]
+
+    with h5py.File(data_file) as h:
+        data = h['whisker_tracking'][f'manip{manip}']
+        data0 = np.array(h['whisker_tracking'][f'manip0'])
+        Ts = data.attrs['Ts']
+        pad = data.attrs['pad']
+        data = np.array(data)
+    
+    time = np.arange(len(data[0])) * Ts - pad
+
+    mean = np.mean(data, axis=0)
+    err = np.std(data, axis=0, ddof=1)
+    mean0 = np.mean(data0, axis=0)
+    err0 = np.std(data0, axis=0, ddof=1)
+    
+    if manip != 0:
+        ax.errorbar(time, mean0, yerr=err0, color='k', lw=.75)
+    ax.errorbar(time, mean, yerr=err, color=mcols[manip])
+
+    light_times = {
+                2: [0,3.8],
+                3: [0,3.8],
+                4: [0,3.8],
+                5: [0,3.8/3],
+                6: [3.8/3,2*3.8/3],
+                7: [2*3.8/3,3.8],
+            }
+    if manip in light_times:
+        t0,t1 = light_times[manip]
+        rect = pl.Rectangle((t0,1.01), t1-t0, .05, color=mcols[manip], transform=blend(ax.transData,ax.transAxes), clip_on=False)
+        ax.add_patch(rect)
+    # with text
+    ax.text(-.02, .5, mlabs[manip], ha='right', va='center', fontsize=FS, transform=ax.transAxes, color=mcols[manip])
+    #ax.set_ylabel(mlabs[manip], fontsize=FS-1, color=mcols[manip], labelpad=1)
+
+    ax.axvline(-1, color='k', lw=.5, ls=':')
+    ax.axvline(0, color='k', lw=.5, ls=':')
+    ax.axvline(3.8, color='k', lw=.5, ls=':')
+
+    if manip==0:
+        ax.text(-1, 1.3, 'Audio\ncue', ha='center', va='center', fontsize=FS, transform=blend(ax.transData,ax.transAxes))
+        ax.text(0, 1.3, 'Bilateral\nstart puffs', ha='center', va='center', fontsize=FS, transform=blend(ax.transData,ax.transAxes))
+        ax.text(3.8, 1.3, 'Bilateral\nend puffs', ha='center', va='center', fontsize=FS, transform=blend(ax.transData,ax.transAxes))
+    
+    ax.set_xlim([-1.01, 4.3])
+    ax.set_xticks([-1,0,1,2,3,4])
+    ax.set_xlabel('Time in cue period (s)', fontsize=FS, labelpad=4)
+    if ylab:
+        ax.text(-.09, .5, 'Whisker movement (a.u.)', fontsize=FS, rotation=90, ha='center', va='center', transform=ax.transAxes)
+    if xticks is False:
+        ax.set_xticklabels([])
+        ax.set_xlabel('')
+    ax.set_yticks([])
+    ax.spines['left'].set_visible(False)
+    ax.tick_params(labelsize=FS)
+
+    return axs
+
 def mini_light_delivery_schematic(ax, x0, y0, w, h, m=0, transform=None, titles=False):
     if m == 0:
         fc = 'none'
@@ -1732,6 +2315,9 @@ def mini_light_delivery_schematic(ax, x0, y0, w, h, m=0, transform=None, titles=
             0 : 'Light off',
             234 : 'Cue-period light',
             8 : 'Delay-period light',
+            '0_nobias' : 'Light off',
+            '234_nobias' : 'Cue-period light',
+            '8_nobias': 'Delay-period light',
             }
 
     rect = pl.Rectangle((x0,y0), w, h, transform=transform, clip_on=False, edgecolor='k', facecolor=fc, lw=.3)
@@ -1880,3 +2466,52 @@ def error_ellipse(x_bf, hessian, idx, width):
     Ys = r_ellipse[:,1] + Y0
     return Xs,Ys
 
+def ddm_simulation(axs, panel_id):
+    # bsl, leak, noise, (time)
+
+    timings = [ [.5, .8, 1.2, 1.8, 3.3], 
+            [2.0, 2.9, 3.1]         ] 
+
+    cols = ['k','firebrick','tan']
+    names = ['Baseline',r'Leaky (↓$\lambda$)',r'Noisy (↑$\sigma^2_a$)']
+
+    ax = axs[panel_id]
+
+    with h5py.File(data_file) as h:
+        grp = h['ddm_simulation']
+        time = np.array(grp['time'])
+        bsl = -np.array(grp['bsl'])
+        noise = -np.array(grp['noise'])
+        leak = -np.array(grp['leak'])
+    
+    for dat,col,s,zo in zip([bsl,leak,noise], cols, names, [100,50,49]):
+        ax.plot(time, dat, color=col, lw=1.2, zorder=zo)
+        ax.text(1.02, dat[-1], s, color=col, fontsize=FS, ha='left', va='center', transform=blend(ax.transAxes, ax.transData))
+
+    # puffs timing markings
+    h = .1
+    for side,sign in zip(timings,[1,-1]):
+        for t in side:
+            y = 1.1
+            if sign == -1: y += h
+            arr = pl.Arrow(t, y, 0, sign*h, width=h*.7, transform=blend(ax.transData,ax.transAxes), clip_on=False, color='dimgrey')
+            ax.add_patch(arr)
+            ax.axvline(t, color='grey', lw=.25, ls=':')
+    minn = np.min(timings[0])
+    ax.text(minn-.11, 1.1+h/2, 'Evidence:', ha='right', va='center', fontsize=FS, transform=blend(ax.transData, ax.transAxes), color='dimgrey')
+    
+    # aesthetics
+    ax.text(-.12, .5, 'Accumulator\nvalue $a$', ha='center', va='center', fontsize=FS, transform=ax.transAxes, weight='bold')
+    ax.text(-.12, .8, 'Rightward (+)\n↑', ha='center', va='center', fontsize=FS-1, transform=ax.transAxes)
+    ax.text(-.12, .2, '↓\nLeftward (–)', ha='center', va='center', fontsize=FS-1, transform=ax.transAxes)
+    ax.text(.5, -.08, 'Time →', ha='center', va='center', fontsize=FS, transform=ax.transAxes, weight='bold')
+    ax.axhline(0, lw=.5, ls=':', color='k')
+    ax.set_yticks([])
+    ax.set_xticks([])
+    ax.set_ylim([-3.1,5.1])
+    ax.set_xlim([0,time[-1]+.01])
+    ax.tick_params(labelsize=FS)
+    #ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+
+    return axs

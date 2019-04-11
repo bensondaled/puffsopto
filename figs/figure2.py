@@ -10,7 +10,7 @@ figw,figh = 3.35,3.5
 fig = pl.figure(fig_id, figsize=(figw,figh))
 
 row_bottoms = [.63, .58, .14, .04]
-letter_ys = [.97, 0., .47, .44]
+letter_ys = [.97, 0., .45, .44]
 letter_xs = [.01, .32, 0, 0.01, .58, .01, .295, .62, 0]
 letters = ['a','','','b','c', '','','','']
 #letters = [l.upper() for l in letters]
@@ -64,9 +64,9 @@ boxes = [[b[1], row_bottoms[b[0]], b[2], b[3]] for b in boxes]
 axs = [fig.add_axes(box) for box in boxes]
 
 ## Draw panels
-axs = regs(axs, panel_id=0, manips=[0,5], ylab=True, hard=False, xlab=False)
-axs = regs(axs, panel_id=1, manips=[0,6], ylab=False, hard=False, xlab=True, main_title=True)
-axs = regs(axs, panel_id=2, manips=[0,7], ylab=False, hard=False, xlab=False)
+axs = regs(axs, panel_id=0, manips=[0,5], ylab=True, hard=False, xlab=False, xrot=90)
+axs = regs(axs, panel_id=1, manips=[0,6], ylab=False, hard=False, xlab=True, main_title=True, xrot=90)
+axs = regs(axs, panel_id=2, manips=[0,7], ylab=False, hard=False, xlab=False, xrot=90)
 axs = reg_difs(axs, panel_id=3, manips=[5,6,7])
 axs = light_triggered_regression(axs, panel_id=4)
 axs = light_delivery_schematic(axs, panel_id=5, manips=[5,6,7], exclude_phases=[2,3], labelmode=3)
