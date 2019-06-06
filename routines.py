@@ -9,12 +9,16 @@ import statsmodels.api as sm
 from matplotlib.transforms import blended_transform_factory as blend
 
 class HiddenValue(float):
+    """A wrapper for python floats used to blind the experimenter from subject IDs
+    """
     def __repr__(self):
         return 'No peeking!'
     def __str__(self):
         return 'No peeking!'
 
 class HiddenList(list):
+    """A wrapper for python lists used to blind the experimenter from subject IDs
+    """
     def __init__(self, *args):
         super().__init__(*args)
 

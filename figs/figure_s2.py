@@ -49,9 +49,8 @@ boxes = [[b[1], row_bottoms[b[0]], b[2], b[3]] for b in boxes]
 axs = [fig.add_axes(box) for box in boxes]
 
 ## Draw panels
-axs = ai27d_histology(axs, panel_id=0)
+#axs = ai27d_histology(axs, panel_id=0) # histology image omitted from fig_data because it's large; but can be seen in its entirety in the supplementary figure
 axs = ephys(axs, panel_id=1, cell_type='pc')
-#axs = ephys(axs, panel_id=2, cell_type='dcn')
 
 prettify_axes(axs)
 

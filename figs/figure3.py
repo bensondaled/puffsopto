@@ -68,23 +68,13 @@ boxes = [[b[1], row_bottoms[b[0]], b[2], b[3]] for b in boxes]
 # draw axes
 axs = [fig.add_axes(box) for box in boxes]
 
-## Draw panels -- comments are for variations
+## Draw panels
 axs = ddm_params_julia_bootstrap(axs, panel_id=0, param_idx=0, yticklabels=True, )
-        #manips=['8_nobias','234_nobias','0_nobias'], reference='0_nobias')
 axs = ddm_params_julia_bootstrap(axs, panel_id=1, param_idx=1,)
-        #manips=['8_nobias','234_nobias','0_nobias'], reference='0_nobias')
 axs = ddm_params_julia_bootstrap(axs, panel_id=2, param_idx=2,)
-        #manips=['8_nobias','234_nobias','0_nobias'], reference='0_nobias')
 axs = ddm_params_julia_bootstrap(axs, panel_id=3, param_idx=4,)
-#        manips=['8_nobias','234_nobias','0_nobias'], reference='0_nobias')
-
-#axs = ddm_params_julia_bootstrap(axs, panel_id=3, param_idx=3,
-#        manips=['8_nobias','234_nobias','0_nobias'], reference='0_nobias')
 
 axs = ddm_simulation(axs, panel_id=4)
-
-#axs = likelihood_landscape_julia(axs, panel_id=4, param_idxs=[4,2], manip=234, ylab=True, xlab=True)
-#axs = likelihood_landscape_julia(axs, panel_id=5, param_idxs=[4,2], manip=8, yticklabs=False, cbar=True, xlab=True)
 
 prettify_axes(axs)
 
